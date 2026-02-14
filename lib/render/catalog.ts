@@ -155,36 +155,23 @@ export const explorerCatalog = defineCatalog(schema, {
 
     Table: {
       props: z.object({
-        columns: z.array(z.string()),
-        rows: z.array(
-          z.array(
-            z.union([
-              z.string(),
-              z.object({
-                text: z.string(),
-                icon: z.string().nullable(),
-              }),
-            ]),
-          ),
+        data: z.array(z.record(z.string(), z.unknown())),
+        columns: z.array(
+          z.object({
+            key: z.string(),
+            label: z.string(),
+          }),
         ),
-        caption: z.string().nullable(),
+        emptyMessage: z.string().nullable(),
       }),
       description:
-        'Data table. columns: header labels. rows: 2D array of cells. Each cell is either a plain string or { text, icon } where icon is an image URL rendered inline (24×24). Use { text, icon } for weather icons, status icons, logos, etc.',
+        'Data table. Use { "$state": "/path" } to bind read-only data from state.',
       example: {
-        columns: ["Day", "Condition", "High"],
-        rows: [
-          [
-            "Mon",
-            {
-              text: "Sunny",
-              icon: "https://www.accuweather.com/assets/images/weather-icons/v2a/1.svg",
-            },
-            "72°F",
-          ],
-          ["Tue", { text: "Rain", icon: "https://www.accuweather.com/assets/images/weather-icons/v2a/18.svg" }, "65°F"],
+        data: { $state: "/stories" },
+        columns: [
+          { key: "title", label: "Title" },
+          { key: "score", label: "Score" },
         ],
-        caption: null,
       },
     },
 
