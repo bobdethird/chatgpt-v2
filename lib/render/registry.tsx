@@ -376,12 +376,12 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       const sorted =
         sortCol !== null
           ? [...rows].sort((a, b) => {
-              const av = cellText(a[sortCol] ?? "");
-              const bv = cellText(b[sortCol] ?? "");
-              return sortDir === "asc"
-                ? av.localeCompare(bv, undefined, { numeric: true })
-                : bv.localeCompare(av, undefined, { numeric: true });
-            })
+            const av = cellText(a[sortCol] ?? "");
+            const bv = cellText(b[sortCol] ?? "");
+            return sortDir === "asc"
+              ? av.localeCompare(bv, undefined, { numeric: true })
+              : bv.localeCompare(av, undefined, { numeric: true });
+          })
           : rows;
 
       const resetSort = () => {
@@ -412,51 +412,54 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
             <TableHeader>
               <TableRow>
                 {columns.map((col, i) => {
-                const SortIcon =
-                  sortCol === i
-                    ? sortDir === "asc"
-                      ? ArrowUp
-                      : ArrowDown
-                    : ArrowUpDown;
+                  const SortIcon =
+                    sortCol === i
+                      ? sortDir === "asc"
+                        ? ArrowUp
+                        : ArrowDown
+                      : ArrowUpDown;
+                  return (
+                    <TableHead key={i}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                        onClick={() => handleSort(i)}
+                      >
+                        {col}
+                        <SortIcon className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((row, i) => {
+                if (!Array.isArray(row)) return null;
                 return (
-                  <TableHead key={i}>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                      onClick={() => handleSort(i)}
-                    >
-                      {col}
-                      <SortIcon className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                  </TableHead>
+                  <TableRow key={i}>
+                    {row.map((cell, j) => (
+                      <TableCell key={j}>
+                        {typeof cell === "string" ? (
+                          cell
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            {cell.icon && (
+                              <ShadAvatar size="sm">
+                                <AvatarImage src={cell.icon} alt="" />
+                                <AvatarFallback>?</AvatarFallback>
+                              </ShadAvatar>
+                            )}
+                            {cell.text}
+                          </span>
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 );
               })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.map((row, i) => (
-              <TableRow key={i}>
-                {row.map((cell, j) => (
-                  <TableCell key={j}>
-                    {typeof cell === "string" ? (
-                      cell
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5">
-                        {cell.icon && (
-                          <ShadAvatar size="sm">
-                            <AvatarImage src={cell.icon} alt="" />
-                            <AvatarFallback>?</AvatarFallback>
-                          </ShadAvatar>
-                        )}
-                        {cell.text}
-                      </span>
-                    )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableBody>
+          </Table>
         </div>
       );
     },
@@ -485,8 +488,8 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         ? rawData
         : Array.isArray((rawData as Record<string, unknown>)?.data)
           ? ((rawData as Record<string, unknown>).data as Array<
-              Record<string, unknown>
-            >)
+            Record<string, unknown>
+          >)
           : [];
 
       const { items, valueKey } = processChartData(
@@ -549,8 +552,8 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         ? rawData
         : Array.isArray((rawData as Record<string, unknown>)?.data)
           ? ((rawData as Record<string, unknown>).data as Array<
-              Record<string, unknown>
-            >)
+            Record<string, unknown>
+          >)
           : [];
 
       const { items, valueKey } = processChartData(
@@ -758,8 +761,8 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         ? rawData
         : Array.isArray((rawData as Record<string, unknown>)?.data)
           ? ((rawData as Record<string, unknown>).data as Array<
-              Record<string, unknown>
-            >)
+            Record<string, unknown>
+          >)
           : [];
 
       if (items.length === 0) {

@@ -35,6 +35,8 @@ import {
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useLocalChat } from "@/lib/hooks/use-local-chat";
+import { MessageSquare, Plus, History } from "lucide-react";
 
 // =============================================================================
 // Types
@@ -288,9 +290,8 @@ function MessageBubble({
           return (
             <div
               key={`text-${i}`}
-              className={`text-sm leading-relaxed text-muted-foreground [&_p+p]:mt-3 ${
-                isFading ? "animate-fade-out-collapse" : ""
-              }`}
+              className={`text-sm leading-relaxed text-muted-foreground [&_p+p]:mt-3 ${isFading ? "animate-fade-out-collapse" : ""
+                }`}
             >
               <Streamdown
                 plugins={{ code }}
@@ -363,8 +364,58 @@ export default function ChatPage() {
   // number = Index of 'user' message to show history for
   const [viewedIndex, setViewedIndex] = useState<number | null>(null);
 
+  const {
+    chats,
+    currentChatId,
+    createChat,
+    selectChat,
+    saveMessages,
+    deleteChat,
+    currentChat
+  } = useLocalChat();
+
   const { messages, sendMessage, setMessages, status, error } =
-    useChat<AppMessage>({ transport });
+    useChat<AppMessage>({
+      transport,
+      onFinish: () => {
+        if (currentChatId) {
+          // We need to wait for the messages state to update, or pass the new messages directly.
+          // useChat doesn't pass the new messages to onFinish in all versions, 
+          // but we can rely on the effect below to sync.
+        }
+      }
+    });
+
+  // Sync messages to local storage whenever they change
+  useEffect(() => {
+    if (currentChatId && messages.length > 0) {
+      saveMessages(currentChatId, messages);
+    }
+  }, [messages, currentChatId, saveMessages]);
+
+  // Load messages when switching chats
+  useEffect(() => {
+    if (currentChat) {
+      setMessages(currentChat.messages as AppMessage[]);
+      setViewedIndex(null);
+    } else if (currentChatId === null && chats.length > 0) {
+      // If no chat selected but we have chats, maybe select the first one?
+      // Or keep it empty for "New Chat" state if we want explicit "New Chat" button press.
+      // For this app, let's say if no ID is selected, we are in a "New Chat" limbo 
+      // until the user sends a message or clicks "Add Chat".
+      // But "Add Chat" creates an ID immediately.
+      // Let's assume start = new chat.
+    }
+  }, [currentChatId, setMessages]); // removed chats dependency to avoid loops
+
+  const handleAddChat = useCallback(() => {
+    const newId = createChat();
+    setMessages([]); // Clear current view
+    setInput("");
+    inputRef.current?.focus();
+    setViewedIndex(null);
+  }, [createChat, setMessages]);
+
 
   const isStreaming = status === "streaming" || status === "submitted";
 
@@ -374,14 +425,34 @@ export default function ChatPage() {
   const historyItems = messages
     .map((m, i) => ({ ...m, index: i }))
     .filter((m) => m.role === "user")
-    .map((m) => ({
-      index: m.index,
-      summary: m.content
-        ? m.content.split(" ").slice(0, 3).join(" ")
-        : "New Chat",
-      timestamp: Date.now(), // approximation, we don't have real timestamps in basic useChat
-    }))
+    .slice(0, -1) // Exclude the most recent user message (current turn)
+    .map((m) => {
+      // Find the next message (assistant response)
+      const assistantMsg = messages[m.index + 1];
+
+      // Extract user text
+      let userText = "";
+      // Check content property (for new messages) or try to find text part
+      if (typeof (m as any).content === "string") {
+        userText = (m as any).content;
+      } else if (Array.isArray(m.parts)) {
+        // Try to find text part
+        const textPart = m.parts.find((p: any) => p.type === 'text');
+        if (textPart) {
+          userText = (textPart as any).text;
+        }
+      }
+
+      let summary = userText ? userText.slice(0, 50) : "Complex Input";
+
+      return {
+        index: m.index,
+        summary: summary,
+        timestamp: Date.now(),
+      };
+    })
     .reverse(); // Show newest first
+
 
   // Determine what to display
   let displayedMessages: AppMessage[] = [];
@@ -474,13 +545,19 @@ export default function ChatPage() {
       const message = text || input;
       if (!message.trim() || isStreaming) return;
 
+      // Ensure we have a chat ID. If not, create one.
+      let activeId = currentChatId;
+      if (!activeId) {
+        activeId = createChat();
+      }
+
       // Clear view index to ensure we see the new message interaction
       setViewedIndex(null);
 
       setInput("");
       await sendMessage({ text: message.trim() });
     },
-    [input, isStreaming, sendMessage],
+    [input, isStreaming, sendMessage, currentChatId, createChat],
   );
 
   const handleKeyDown = useCallback(
@@ -493,13 +570,8 @@ export default function ChatPage() {
     [handleSubmit],
   );
 
-  const handleNewChat = useCallback(() => {
-    setMessages([]);
-    setInput("");
-    inputRef.current?.focus();
-    setViewedHistoryItem(null); // Clear checked history state
-    setViewedIndex(null);
-  }, [setMessages]);
+  // Removed old handleNewChat
+
 
   const isEmpty = messages.length === 0;
   const inputExpanded = inputHovered || input.length > 0 || isEmpty;
@@ -515,51 +587,70 @@ export default function ChatPage() {
     <TooltipProvider>
       <div className="h-screen flex flex-col overflow-hidden relative">
         {/* Header */}
-        <header className="border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <header className="border-b px-6 py-3 flex items-center justify-between flex-shrink-0 z-20 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold">ChatGPT V2</h1>
-            <Button variant="ghost" size="icon-sm" onClick={handleNewChat} title="New Chat">
-              <MessageSquarePlus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Right History Sidebar */}
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="w-5 h-5" />
+                <Button variant="ghost" size="icon" title="Past Chats">
+                  <History className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right">
+              <SheetContent side="left">
                 <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Conversation History
-                  </SheetTitle>
+                  <SheetTitle>Past Chats</SheetTitle>
                 </SheetHeader>
                 <div className="flex flex-col gap-1 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
-                  {historyItems.length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center py-4">No history yet</div>
-                  ) : (
-                    historyItems.map((item) => (
-                      <Button
-                        key={item.index}
-                        variant={viewedIndex === item.index ? "secondary" : "ghost"}
-                        className="justify-start h-auto py-3 px-3 text-left font-normal"
-                        onClick={() => setViewedIndex(item.index)}
-                      >
-                        <div className="flex flex-col gap-1 w-full">
-                          <span className="truncate w-full font-medium">{item.summary}</span>
-                        </div>
-                      </Button>
-                    ))
-                  )}
+                  {chats.map(chat => (
+                    <Button
+                      key={chat.id}
+                      variant={currentChatId === chat.id ? "secondary" : "ghost"}
+                      className="justify-start text-left truncate"
+                      onClick={() => selectChat(chat.id)}
+                    >
+                      {chat.title || "New Chat"}
+                    </Button>
+                  ))}
+                  {chats.length === 0 && <div className="text-sm text-muted-foreground p-4">No past chats</div>}
                 </div>
               </SheetContent>
             </Sheet>
-
+            <h1 className="text-lg font-semibold">ChatGPT V2</h1>
+            <Button variant="ghost" size="icon-sm" onClick={handleAddChat} title="New Chat">
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
             <ThemeToggle />
           </div>
         </header>
+
+        {/* Current Conversation History Bubble (Bottom Right) */}
+        {!isEmpty && (
+          <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
+            <div className="group flex flex-col items-end pointer-events-auto">
+              {/* The Bubble Content - Revealed on Hover */}
+              <div className="mb-2 w-72 max-h-[60vh] overflow-y-auto bg-popover border rounded-xl shadow-xl p-2 opacity-0 scale-95 origin-bottom-right transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 hidden group-hover:flex flex-col gap-1">
+                <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Current Session</div>
+                {historyItems.map((item) => (
+                  <div
+                    key={item.index}
+                    className={`text-sm p-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${viewedIndex === item.index ? "bg-muted" : ""}`}
+                    onClick={() => setViewedIndex(item.index)}
+                  >
+                    {/* We can improve this label to show prompt + snippet if available */}
+                    <div className="font-medium truncate">{item.summary}</div>
+                    {/* Assuming we can get the assistant response snippet easily, but for now summary is the prompt */}
+                  </div>
+                ))}
+              </div>
+
+              {/* The Toggle Button */}
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full shadow-lg bg-background">
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Messages area */}
         <main ref={scrollContainerRef} className="flex-1 overflow-auto">
