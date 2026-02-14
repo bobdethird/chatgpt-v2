@@ -138,6 +138,143 @@ function repairSpec(spec: Spec): Spec {
     elements[k] = v as SpecElement;
   }
 
+  let changed = false;
+
+  // ----- Table column normalization -----
+  // LLMs sometimes emit TanStack-style columns (accessorKey, header); normalize to key, label
+  for (const el of Object.values(elements)) {
+    if (el.type !== "Table" || !Array.isArray(el.props?.columns)) continue;
+    const columns = el.props.columns as Array<Record<string, unknown>>;
+    const normalized = columns.map((col, i) => {
+      const key =
+        (col.key as string) ??
+        (col.accessorKey as string) ??
+        `col-${i}`;
+      const label =
+        (col.label as string) ??
+        (col.header as string) ??
+        (col.key as string) ??
+        (col.accessorKey as string) ??
+        "";
+      return { key, label };
+    });
+    el.props = { ...el.props, columns: normalized };
+    changed = true;
+  }
+
+  // ----- Tabs: normalize tab items to { value, label } -----
+  for (const el of Object.values(elements)) {
+    if (el.type !== "Tabs" || !Array.isArray(el.props?.tabs)) continue;
+    const tabs = el.props.tabs as Array<Record<string, unknown>>;
+    const normalized = tabs.map((tab, i) => ({
+      value:
+        (tab.value as string) ??
+        (tab.id as string) ??
+        (tab.key as string) ??
+        `tab-${i}`,
+      label:
+        (tab.label as string) ??
+        (tab.name as string) ??
+        (tab.title as string) ??
+        (tab.value as string) ??
+        (tab.id as string) ??
+        "",
+    }));
+    el.props = { ...el.props, tabs: normalized };
+    changed = true;
+  }
+
+  // ----- Accordion: normalize items to { title, content } -----
+  for (const el of Object.values(elements)) {
+    if (el.type !== "Accordion" || !Array.isArray(el.props?.items)) continue;
+    const items = el.props.items as Array<Record<string, unknown>>;
+    const normalized = items.map((item) => ({
+      title:
+        (item.title as string) ??
+        (item.heading as string) ??
+        (item.label as string) ??
+        "",
+      content:
+        (item.content as string) ??
+        (item.body as string) ??
+        (item.description as string) ??
+        "",
+    }));
+    el.props = { ...el.props, items: normalized };
+    changed = true;
+  }
+
+  // ----- Timeline: normalize items to { title, description?, date?, status? } -----
+  for (const el of Object.values(elements)) {
+    if (el.type !== "Timeline" || !Array.isArray(el.props?.items)) continue;
+    const items = el.props.items as Array<Record<string, unknown>>;
+    const normalized = items.map((item) => ({
+      title:
+        (item.title as string) ??
+        (item.heading as string) ??
+        (item.label as string) ??
+        "",
+      description:
+        (item.description as string) ??
+        (item.body as string) ??
+        (item.detail as string) ??
+        null,
+      date:
+        (item.date as string) ?? (item.dateLabel as string) ?? null,
+      status: (item.status as string) ?? null,
+    }));
+    el.props = { ...el.props, items: normalized };
+    changed = true;
+  }
+
+  // ----- RadioGroup / SelectInput: normalize options to { value, label } -----
+  for (const el of Object.values(elements)) {
+    if (
+      (el.type !== "RadioGroup" && el.type !== "SelectInput") ||
+      !Array.isArray(el.props?.options)
+    )
+      continue;
+    const options = el.props.options as Array<Record<string, unknown>>;
+    const normalized = options.map((opt, i) => ({
+      value:
+        (opt.value as string) ??
+        (opt.id as string) ??
+        (opt.key as string) ??
+        `opt-${i}`,
+      label:
+        (opt.label as string) ??
+        (opt.text as string) ??
+        (opt.name as string) ??
+        (opt.value as string) ??
+        (opt.id as string) ??
+        "",
+    }));
+    el.props = { ...el.props, options: normalized };
+    changed = true;
+  }
+
+  // ----- LineChart: normalize yKeys to { key, label?, color? } -----
+  for (const el of Object.values(elements)) {
+    if (el.type !== "LineChart" || !Array.isArray(el.props?.yKeys)) continue;
+    const yKeys = el.props.yKeys as Array<Record<string, unknown>>;
+    const normalized = yKeys.map((lk, i) => ({
+      key:
+        (lk.key as string) ??
+        (lk.dataKey as string) ??
+        (lk.id as string) ??
+        `line-${i}`,
+      label:
+        (lk.label as string) ??
+        (lk.name as string) ??
+        (lk.key as string) ??
+        (lk.dataKey as string) ??
+        "",
+      color: (lk.color as string) ?? null,
+    }));
+    el.props = { ...el.props, yKeys: normalized };
+    changed = true;
+  }
+
   // Collect all child references and build parent→child map
   const allChildRefs = new Set<string>();
   for (const el of Object.values(elements)) {
@@ -153,8 +290,6 @@ function repairSpec(spec: Spec): Spec {
   const orphanedKeys = new Set(
     Object.keys(elements).filter((k) => !referencedKeys.has(k)),
   );
-
-  let changed = false;
 
   for (const missing of missingRefs) {
     // ----- Strategy 1: Naming mismatch -----
