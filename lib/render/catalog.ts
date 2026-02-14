@@ -447,6 +447,18 @@ export const explorerCatalog = defineCatalog(schema, {
     },
 
     // =========================================================================
+    // Domain Components
+    // =========================================================================
+
+    ShoppingCanvas: {
+      props: z.object({
+        initialQuery: z.string().nullable(),
+      }),
+      description: "Interactive shopping interface for searching and browsing products. Use this when the user wants to shop or find items to buy. Always pass the user's initial search query.",
+      example: { initialQuery: "running shoes" },
+    },
+
+    // =========================================================================
     // 3D Scene Components (React Three Fiber)
     // =========================================================================
 

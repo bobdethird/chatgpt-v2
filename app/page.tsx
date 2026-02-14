@@ -393,7 +393,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
-  
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputHovered, setInputHovered] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
@@ -564,7 +564,7 @@ export default function ChatPage() {
   }, [previewMode, viewedIndex, scrollToExchangeAnchor]);
 
 
-  
+
 
   const handleSubmit = useCallback(
     async (text?: string) => {
@@ -668,266 +668,268 @@ export default function ChatPage() {
               />
             </div>
 
-        {/* Current Conversation History Bubble — hover to enter preview: one long document, scroll to exchange */}
-        {!isEmpty && (
-          <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
-            <div className="group flex flex-col items-end pointer-events-auto">
-              <div
-                className="mb-2 w-72 max-h-[60vh] overflow-y-auto overflow-x-hidden bg-popover border rounded-xl shadow-xl p-2 opacity-0 scale-95 origin-bottom-right transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 hidden group-hover:flex flex-col gap-0.5"
-                onMouseEnter={() => {
-                  if (returnToLiveTimeoutRef.current) {
-                    clearTimeout(returnToLiveTimeoutRef.current);
-                    returnToLiveTimeoutRef.current = null;
-                  }
-                  setPreviewMode(true);
-                }}
-                onMouseLeave={() => {
-                  setPreviewMode(false);
-                  lastHoveredIndexRef.current = null;
-                  if (pinnedIndex !== null) {
-                    setViewedIndex(pinnedIndex);
-                    return;
-                  }
-                  returnToLiveTimeoutRef.current = setTimeout(() => {
-                    setViewedIndex(null);
-                    returnToLiveTimeoutRef.current = null;
-                  }, 400);
-                }}
-                onWheel={(e) => {
-                  if (!previewMode) return;
-                  const main = scrollContainerRef.current;
-                  if (!main) return;
-                  e.preventDefault();
-                  main.scrollTop += e.deltaY;
-                }}
-              >
-                <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5 sticky top-0 bg-popover">
-                  Current Session{previewMode ? " · scroll" : pinnedIndex !== null ? " · pinned" : ""}
-                </div>
-                {historyItems.map((item) => (
+            {/* Current Conversation History Bubble — hover to enter preview: one long document, scroll to exchange */}
+            {!isEmpty && (
+              <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
+                <div className="group flex flex-col items-end pointer-events-auto">
                   <div
-                    key={item.index}
-                    role="button"
-                    tabIndex={0}
-                    className={`text-sm p-2.5 rounded-lg transition-all duration-150 select-none ${viewedIndex === item.index ? "bg-muted ring-1 ring-border/50" : "hover:bg-muted/60"} ${pinnedIndex === item.index ? "ring-1 ring-primary/40" : ""} cursor-pointer`}
-                    onMouseEnter={() => setViewedIndex(item.index)}
-                    onFocus={() => setViewedIndex(item.index)}
-                    onClick={() => {
-                      setViewedIndex(item.index);
-                      setPinnedIndex(item.index);
+                    className="mb-2 w-72 max-h-[60vh] overflow-y-auto overflow-x-hidden bg-popover border rounded-xl shadow-xl p-2 opacity-0 scale-95 origin-bottom-right transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 hidden group-hover:flex flex-col gap-0.5"
+                    onMouseEnter={() => {
+                      if (returnToLiveTimeoutRef.current) {
+                        clearTimeout(returnToLiveTimeoutRef.current);
+                        returnToLiveTimeoutRef.current = null;
+                      }
+                      setPreviewMode(true);
+                    }}
+                    onMouseLeave={() => {
+                      setPreviewMode(false);
+                      lastHoveredIndexRef.current = null;
+                      if (pinnedIndex !== null) {
+                        setViewedIndex(pinnedIndex);
+                        return;
+                      }
+                      returnToLiveTimeoutRef.current = setTimeout(() => {
+                        setViewedIndex(null);
+                        returnToLiveTimeoutRef.current = null;
+                      }, 400);
+                    }}
+                    onWheel={(e) => {
+                      if (!previewMode) return;
+                      const main = scrollContainerRef.current;
+                      if (!main) return;
+                      e.preventDefault();
+                      main.scrollTop += e.deltaY;
                     }}
                   >
-                    <div className="font-medium truncate">{item.summary}</div>
-                  </div>
-                  );
-                })}
-              </div>
-
-              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full shadow-lg bg-background">
-                <MessageSquare className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Messages area */}
-        <main ref={scrollContainerRef} className="flex-1 overflow-auto">
-          {isEmpty ? (
-            /* Empty state */
-            <div className="h-full flex flex-col items-center justify-center px-6 py-0">
-              <div className="max-w-2xl w-full space-y-8">
-                <div className="text-center space-y-2">
-                  <h2 className="text-2xl font-semibold tracking-tight">
-                    What would you like to explore?
-                  </h2>
-                </div>
-
-                {/* Suggestions */}
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {SUGGESTIONS.map((s) => (
-                    <Button
-                      key={s.label}
-                      variant="outline"
-                      size="sm"
-                      className="text-muted-foreground"
-                      onClick={() => handleSubmit(s.prompt)}
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      {s.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : previewMode ? (
-            /* Preview: one long document with answer-start anchors; hover history scrolls to anchor */
-            <div className="max-w-6xl mx-auto px-10 py-6 pb-24 space-y-8">
-              {exchangeIndices.map((userIdx) => {
-                const userMsg = messages[userIdx];
-                const assistantMsg = messages[userIdx + 1];
-                const isLastExchange = userIdx === exchangeIndices[exchangeIndices.length - 1];
-                const rawPrompt = extractPromptFromMessage(userMsg);
-                return (
-                  <div
-                    key={userIdx}
-                    id={`exchange-${userIdx}`}
-                    className="space-y-4"
-                  >
-                    {assistantMsg && assistantMsg.role === "assistant" ? (
+                    <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5 sticky top-0 bg-popover">
+                      Current Session{previewMode ? " · scroll" : pinnedIndex !== null ? " · pinned" : ""}
+                    </div>
+                    {historyItems.map((item) => (
                       <div
-                        id={`exchange-${userIdx}-start`}
-                        className="scroll-mt-4"
+                        key={item.index}
+                        role="button"
+                        tabIndex={0}
+                        className={`text-sm p-2.5 rounded-lg transition-all duration-150 select-none ${viewedIndex === item.index
+                            ? "bg-muted ring-1 ring-border/50"
+                            : "hover:bg-muted/60"
+                          } ${pinnedIndex === item.index ? "ring-1 ring-primary/40" : ""} cursor-pointer`}
+                        onMouseEnter={() => setViewedIndex(item.index)}
+                        onFocus={() => setViewedIndex(item.index)}
+                        onClick={() => {
+                          setViewedIndex(item.index);
+                          setPinnedIndex(item.index);
+                        }}
                       >
-                        <OutputBlock rawPrompt={rawPrompt}>
-                          <MessageBubble
-                            message={assistantMsg}
-                            isLast={isLastExchange && !isStreaming}
-                            isStreaming={isLastExchange && isStreaming}
-                          />
-                        </OutputBlock>
+                        <div className="font-medium truncate">{item.summary}</div>
                       </div>
-                    ) : (
-                      <OutputBlock rawPrompt={rawPrompt}>
-                        <div className="text-sm text-muted-foreground animate-shimmer">Thinking...</div>
-                      </OutputBlock>
-                    )}
+                    ))}
                   </div>
-                );
-              })}
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error.message}</AlertDescription>
-                </Alert>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          ) : (
-            /* Single-exchange view (latest or pinned) */
-            <div
-              key={viewedIndex ?? "live"}
-              className="max-w-6xl mx-auto px-10 py-6 pb-24 space-y-6 animate-in fade-in-0 duration-200"
-            >
-              {viewedIndex !== null && (
-                <div className="flex justify-center mb-4">
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    className="text-xs h-7 gap-1"
-                    onClick={() => {
-                      setViewedIndex(null);
-                      setPinnedIndex(null);
-                    }}
-                  >
-                    {pinnedIndex !== null ? "Unpin and return to latest" : "Return to latest"}
+
+                  <Button variant="outline" size="icon" className="h-10 w-10 rounded-full shadow-lg bg-background">
+                    <MessageSquare className="h-5 w-5" />
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* Messages area */}
+            <main ref={scrollContainerRef} className="flex-1 overflow-auto">
+              {isEmpty ? (
+                /* Empty state */
+                <div className="h-full flex flex-col items-center justify-center px-6 py-0">
+                  <div className="max-w-2xl w-full space-y-8">
+                    <div className="text-center space-y-2">
+                      <h2 className="text-2xl font-semibold tracking-tight">
+                        What would you like to explore?
+                      </h2>
+                    </div>
+
+                    {/* Suggestions */}
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {SUGGESTIONS.map((s) => (
+                        <Button
+                          key={s.label}
+                          variant="outline"
+                          size="sm"
+                          className="text-muted-foreground"
+                          onClick={() => handleSubmit(s.prompt)}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {s.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : previewMode ? (
+                /* Preview: one long document with answer-start anchors; hover history scrolls to anchor */
+                <div className="max-w-6xl mx-auto px-10 py-6 pb-24 space-y-8">
+                  {exchangeIndices.map((userIdx) => {
+                    const userMsg = messages[userIdx];
+                    const assistantMsg = messages[userIdx + 1];
+                    const isLastExchange = userIdx === exchangeIndices[exchangeIndices.length - 1];
+                    const rawPrompt = extractPromptFromMessage(userMsg);
+                    return (
+                      <div
+                        key={userIdx}
+                        id={`exchange-${userIdx}`}
+                        className="space-y-4"
+                      >
+                        {assistantMsg && assistantMsg.role === "assistant" ? (
+                          <div
+                            id={`exchange-${userIdx}-start`}
+                            className="scroll-mt-4"
+                          >
+                            <OutputBlock rawPrompt={rawPrompt}>
+                              <MessageBubble
+                                message={assistantMsg}
+                                isLast={isLastExchange && !isStreaming}
+                                isStreaming={isLastExchange && isStreaming}
+                              />
+                            </OutputBlock>
+                          </div>
+                        ) : (
+                          <OutputBlock rawPrompt={rawPrompt}>
+                            <div className="text-sm text-muted-foreground animate-shimmer">Thinking...</div>
+                          </OutputBlock>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error.message}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              ) : (
+                /* Single-exchange view (latest or pinned) */
+                <div
+                  key={viewedIndex ?? "live"}
+                  className="max-w-6xl mx-auto px-10 py-6 pb-24 space-y-6 animate-in fade-in-0 duration-200"
+                >
+                  {viewedIndex !== null && (
+                    <div className="flex justify-center mb-4">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        className="text-xs h-7 gap-1"
+                        onClick={() => {
+                          setViewedIndex(null);
+                          setPinnedIndex(null);
+                        }}
+                      >
+                        {pinnedIndex !== null ? "Unpin and return to latest" : "Return to latest"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {displayedMessages.map((message, index) => {
+                    if (message.role === "user") {
+                      const isLast = index === displayedMessages.length - 1;
+                      if (!isLast) return null;
+                      const rawPrompt = extractPromptFromMessage(message);
+                      return (
+                        <OutputBlock key={message.id} rawPrompt={rawPrompt}>
+                          <div className="text-sm text-muted-foreground animate-shimmer">Thinking...</div>
+                        </OutputBlock>
+                      );
+                    }
+                    const userMsg = displayedMessages[index - 1];
+                    const rawPrompt = userMsg && userMsg.role === "user"
+                      ? extractPromptFromMessage(userMsg)
+                      : "";
+                    return (
+                      <OutputBlock key={message.id} rawPrompt={rawPrompt}>
+                        <MessageBubble
+                          message={message}
+                          isLast={index === displayedMessages.length - 1}
+                          isStreaming={isStreaming && viewedIndex === null && index === displayedMessages.length - 1}
+                        />
+                      </OutputBlock>
+                    );
+                  })}
+
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error.message}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
               )}
+            </main>
 
-              {displayedMessages.map((message, index) => {
-                if (message.role === "user") {
-                  const isLast = index === displayedMessages.length - 1;
-                  if (!isLast) return null;
-                  const rawPrompt = extractPromptFromMessage(message);
-                  return (
-                    <OutputBlock key={message.id} rawPrompt={rawPrompt}>
-                      <div className="text-sm text-muted-foreground animate-shimmer">Thinking...</div>
-                    </OutputBlock>
-                  );
-                }
-                const userMsg = displayedMessages[index - 1];
-                const rawPrompt = userMsg && userMsg.role === "user"
-                  ? extractPromptFromMessage(userMsg)
-                  : "";
-                return (
-                  <OutputBlock key={message.id} rawPrompt={rawPrompt}>
-                    <MessageBubble
-                      message={message}
-                      isLast={index === displayedMessages.length - 1}
-                      isStreaming={isStreaming && viewedIndex === null && index === displayedMessages.length - 1}
-                    />
-                  </OutputBlock>
-                );
-              })}
+            {/* Input bar - overlays bottom of chat area */}
+            <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-10 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
 
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error.message}</AlertDescription>
-                </Alert>
-              )}
-
-              <div ref={messagesEndRef} />
+              <div
+                className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
+                style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
+                onMouseEnter={() => setInputHovered(true)}
+                onMouseLeave={() => setInputHovered(false)}
+              >
+                <Textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder={
+                    isEmpty
+                      ? "e.g., Compare weather in NYC, London, and Tokyo..."
+                      : "Ask a follow-up..."
+                  }
+                  rows={1}
+                  className={[
+                    "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
+                    inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
+                    inputExpanded ? "text-lg" : "text-sm",
+                  ].join(" ")}
+                  style={{
+                    height: inputExpanded ? undefined : "48px",
+                    minHeight: inputExpanded ? "48px" : undefined,
+                    maxHeight: inputExpanded ? "200px" : undefined,
+                    overflow: inputExpanded ? "auto" : "hidden",
+                    borderRadius: inputExpanded ? "1rem" : "9999px",
+                    paddingLeft: inputExpanded ? "1rem" : "2.5rem",
+                    paddingRight: inputExpanded ? "3rem" : "1.5rem",
+                    paddingTop: "12px",
+                    paddingBottom: "12px",
+                  }}
+                  autoFocus
+                />
+                <div
+                  className="absolute right-2 bottom-2 transition-all duration-200"
+                  style={{
+                    opacity: inputExpanded ? 1 : 0,
+                    pointerEvents: inputExpanded ? "auto" : "none",
+                  }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon-sm"
+                        onClick={() => handleSubmit()}
+                        disabled={!input.trim() || isStreaming}
+                      >
+                        {isStreaming ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ArrowUp className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Send message</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             </div>
-          )}
-        </main>
-
-        {/* Input bar - overlays bottom of chat area */}
-        <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-10 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
-          
-          <div
-            className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
-            style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
-            onMouseEnter={() => setInputHovered(true)}
-            onMouseLeave={() => setInputHovered(false)}
-          >
-            <Textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              placeholder={
-                isEmpty
-                  ? "e.g., Compare weather in NYC, London, and Tokyo..."
-                  : "Ask a follow-up..."
-              }
-              rows={1}
-              className={[
-                "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
-                inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
-                inputExpanded ? "text-lg" : "text-sm",
-              ].join(" ")}
-              style={{
-                height: inputExpanded ? undefined : "48px",
-                minHeight: inputExpanded ? "48px" : undefined,
-                maxHeight: inputExpanded ? "200px" : undefined,
-                overflow: inputExpanded ? "auto" : "hidden",
-                borderRadius: inputExpanded ? "1rem" : "9999px",
-                paddingLeft: inputExpanded ? "1rem" : "2.5rem",
-                paddingRight: inputExpanded ? "3rem" : "1.5rem",
-                paddingTop: "12px",
-                paddingBottom: "12px",
-              }}
-              autoFocus
-            />
-            <div
-              className="absolute right-2 bottom-2 transition-all duration-200"
-              style={{
-                opacity: inputExpanded ? 1 : 0,
-                pointerEvents: inputExpanded ? "auto" : "none",
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    onClick={() => handleSubmit()}
-                    disabled={!input.trim() || isStreaming}
-                  >
-                    {isStreaming ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Send message</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
           </div>
         </SidebarInset>
       </SidebarProvider>

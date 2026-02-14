@@ -88,6 +88,7 @@ import {
 import type * as THREE from "three";
 
 import { explorerCatalog } from "./catalog";
+import { ShoppingCanvas } from "@/components/shop/ShoppingCanvas";
 
 // =============================================================================
 // 3D Helper Types & Components
@@ -358,8 +359,8 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         ? rawData
         : Array.isArray((rawData as Record<string, unknown>)?.data)
           ? ((rawData as Record<string, unknown>).data as Array<
-              Record<string, unknown>
-            >)
+            Record<string, unknown>
+          >)
           : [];
 
       const [sortKey, setSortKey] = useState<string | null>(null);
@@ -375,18 +376,18 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
 
       const sorted = sortKey
         ? [...items].sort((a, b) => {
-            const av = a[sortKey];
-            const bv = b[sortKey];
-            // numeric comparison when both values are numbers
-            if (typeof av === "number" && typeof bv === "number") {
-              return sortDir === "asc" ? av - bv : bv - av;
-            }
-            const as = String(av ?? "");
-            const bs = String(bv ?? "");
-            return sortDir === "asc"
-              ? as.localeCompare(bs)
-              : bs.localeCompare(as);
-          })
+          const av = a[sortKey];
+          const bv = b[sortKey];
+          // numeric comparison when both values are numbers
+          if (typeof av === "number" && typeof bv === "number") {
+            return sortDir === "asc" ? av - bv : bv - av;
+          }
+          const as = String(av ?? "");
+          const bs = String(bv ?? "");
+          return sortDir === "asc"
+            ? as.localeCompare(bs)
+            : bs.localeCompare(as);
+        })
         : items;
 
       const handleSort = (key: string) => {
@@ -991,6 +992,12 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       >
         {props.label}
       </Button>
+    ),
+
+    ShoppingCanvas: ({ props }) => (
+      <div className="w-full h-[600px] border rounded-lg overflow-hidden my-4 shadow-sm bg-background">
+        <ShoppingCanvas initialQuery={props.initialQuery || undefined} />
+      </div>
     ),
 
     // =========================================================================

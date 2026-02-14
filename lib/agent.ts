@@ -6,6 +6,7 @@ import { getGitHubRepo, getGitHubPullRequests } from "./tools/github";
 import { getCryptoPrice, getCryptoPriceHistory } from "./tools/crypto";
 import { getStockQuote, getStockPriceHistory } from "./tools/stock";
 import { getHackerNewsTop } from "./tools/hackernews";
+import { searchProducts } from "./tools/shop";
 import { webSearch } from "./tools/search";
 
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4.5";
@@ -221,6 +222,7 @@ ${explorerCatalog.prompt({
     "Grid is the correct layout for catalog/browsing content (products, articles, stories, repos) where users scan many items at a glance — even with many items. Think Amazon product grid.",
     "When showing a dashboard with multiple data categories (Overview, Details, History), use Tabs at the top level to organize them rather than a long vertical scroll.",
     "Prefer 1 rich, well-structured Card over 3 sparse Cards. Consolidate related information.",
+    "When the user wants to buy something or search for products (e.g. 'find running shoes', 'buy a gift'), call the searchProducts tool. Then, in your response, use the ShoppingCanvas component with the initial query from the tool result. DO NOT try to render individual product cards manually unless specifically asked. The ShoppingCanvas handles the full interactive shopping experience.",
   ],
 })}`;
 
@@ -237,6 +239,7 @@ export const agent = new ToolLoopAgent({
     getStockPriceHistory,
     getHackerNewsTop,
     webSearch,
+    searchProducts,
   },
   stopWhen: stepCountIs(5),
   temperature: 0.0,
