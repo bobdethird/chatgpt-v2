@@ -27,9 +27,13 @@ import {
   Loader2,
   Sparkles,
   AlertCircle,
+  MoreVertical,
+  Clock,
+  MessageSquarePlus,
 } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { code } from "@streamdown/code";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // =============================================================================
 // Types
@@ -153,14 +157,14 @@ function MessageBubble({
   const segments: Array<
     | { kind: "text"; text: string }
     | {
-        kind: "tools";
-        tools: Array<{
-          toolCallId: string;
-          toolName: string;
-          state: string;
-          output?: unknown;
-        }>;
-      }
+      kind: "tools";
+      tools: Array<{
+        toolCallId: string;
+        toolName: string;
+        state: string;
+        output?: unknown;
+      }>;
+    }
     | { kind: "spec" }
   > = [];
 
@@ -304,10 +308,70 @@ export default function ChatPage() {
   const [inputHovered, setInputHovered] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
 
+  // Focus Mode State
+  // null = Showing latest interaction (live mode)
+  // number = Index of 'user' message to show history for
+  const [viewedIndex, setViewedIndex] = useState<number | null>(null);
+
   const { messages, sendMessage, setMessages, status, error } =
     useChat<AppMessage>({ transport });
 
   const isStreaming = status === "streaming" || status === "submitted";
+
+  // Derive history items from messages
+  // We look for messages where role='user' to establish the start of a turn.
+  // We use the index as the identifier.
+  const historyItems = messages
+    .map((m, i) => ({ ...m, index: i }))
+    .filter((m) => m.role === "user")
+    .map((m) => ({
+      index: m.index,
+      summary: m.content
+        ? m.content.split(" ").slice(0, 3).join(" ")
+        : "New Chat",
+      timestamp: Date.now(), // approximation, we don't have real timestamps in basic useChat
+    }))
+    .reverse(); // Show newest first
+
+  // Determine what to display
+  let displayedMessages: AppMessage[] = [];
+
+  if (viewedIndex !== null) {
+    // History Mode: Show the user message at viewedIndex and the following assistant message (if exists)
+    const userMsg = messages[viewedIndex];
+    const assistantMsg = messages[viewedIndex + 1];
+    if (userMsg) {
+      displayedMessages.push(userMsg);
+      if (assistantMsg && assistantMsg.role === "assistant") {
+        displayedMessages.push(assistantMsg);
+      }
+    }
+  } else {
+    // Live Mode (Focus Mode):
+    // Show the *latest* exchange. 
+    // Usually the last 2 messages (User + Assistant).
+    // If only User message exists (waiting for AI), show last 1.
+    // However, we want to ensure we're showing a complete turn if possible.
+
+    if (messages.length > 0) {
+      // Find the last user message
+      const lastUserIndex = messages.findLastIndex(m => m.role === 'user');
+      if (lastUserIndex !== -1) {
+        displayedMessages = messages.slice(lastUserIndex);
+      } else {
+        // Fallback (e.g. system message only?)
+        displayedMessages = messages.slice(-2);
+      }
+    }
+  }
+
+  // Auto-switch back to live mode when a new message is added (while not viewing history)
+  useEffect(() => {
+    if (status === 'submitted' || status === 'streaming') {
+      setViewedIndex(null);
+    }
+  }, [status]);
+
 
   // Track whether the user has scrolled away from the bottom.
   // During programmatic scrolling, suppress button updates until we arrive.
@@ -335,9 +399,7 @@ export default function ChatPage() {
     return () => container.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Auto-scroll to bottom on new messages, unless user scrolled up.
-  // Uses instant scrollTop assignment (no smooth animation) to avoid
-  // an ongoing animation that fights user scroll input.
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || !isStickToBottom.current) return;
@@ -346,7 +408,7 @@ export default function ChatPage() {
     requestAnimationFrame(() => {
       isAutoScrolling.current = false;
     });
-  }, [messages, isStreaming]);
+  }, [messages, displayedMessages, isStreaming]);
 
   const scrollToBottom = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -355,13 +417,16 @@ export default function ChatPage() {
     setShowScrollButton(false);
     isAutoScrolling.current = true;
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    // isAutoScrolling is cleared by the scroll handler once it reaches bottom
   }, []);
 
   const handleSubmit = useCallback(
     async (text?: string) => {
       const message = text || input;
       if (!message.trim() || isStreaming) return;
+
+      // Clear view index to ensure we see the new message interaction
+      setViewedIndex(null);
+
       setInput("");
       await sendMessage({ text: message.trim() });
     },
@@ -378,10 +443,12 @@ export default function ChatPage() {
     [handleSubmit],
   );
 
-  const handleClear = useCallback(() => {
+  const handleNewChat = useCallback(() => {
     setMessages([]);
     setInput("");
     inputRef.current?.focus();
+    setViewedHistoryItem(null); // Clear checked history state
+    setViewedIndex(null);
   }, [setMessages]);
 
   const isEmpty = messages.length === 0;
@@ -396,160 +463,205 @@ export default function ChatPage() {
 
   return (
     <TooltipProvider>
-    <div className="h-screen flex flex-col overflow-hidden relative">
-      {/* Header */}
-      <header className="border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">ChatGPT V2</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {messages.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleClear}>
-              Start Over
+      <div className="h-screen flex flex-col overflow-hidden relative">
+        {/* Header */}
+        <header className="border-b px-6 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold">ChatGPT V2</h1>
+            <Button variant="ghost" size="icon-sm" onClick={handleNewChat} title="New Chat">
+              <MessageSquarePlus className="h-4 w-4" />
             </Button>
-          )}
-          <ThemeToggle />
-        </div>
-      </header>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Right History Sidebar */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> Conversation History
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col gap-1 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
+                  {historyItems.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-4">No history yet</div>
+                  ) : (
+                    historyItems.map((item) => (
+                      <Button
+                        key={item.index}
+                        variant={viewedIndex === item.index ? "secondary" : "ghost"}
+                        className="justify-start h-auto py-3 px-3 text-left font-normal"
+                        onClick={() => setViewedIndex(item.index)}
+                      >
+                        <div className="flex flex-col gap-1 w-full">
+                          <span className="truncate w-full font-medium">{item.summary}</span>
+                        </div>
+                      </Button>
+                    ))
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
 
-      {/* Messages area */}
-      <main ref={scrollContainerRef} className="flex-1 overflow-auto">
-        {isEmpty ? (
-          /* Empty state */
-          <div className="h-full flex flex-col items-center justify-center px-6 py-0">
-            <div className="max-w-2xl w-full space-y-8">
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                  What would you like to explore?
-                </h2>
-                <p className="text-muted-foreground">
-                  Ask about weather, GitHub repos, crypto prices, or Hacker News
-                  -- the agent will fetch real data and build a dashboard.
-                </p>
-              </div>
+            <ThemeToggle />
+          </div>
+        </header>
 
-              {/* Suggestions */}
-              <div className="flex flex-wrap gap-2 justify-center">
-                {SUGGESTIONS.map((s) => (
-                  <Button
-                    key={s.label}
-                    variant="outline"
-                    size="sm"
-                    className="text-muted-foreground"
-                    onClick={() => handleSubmit(s.prompt)}
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {s.label}
-                  </Button>
-                ))}
+        {/* Messages area */}
+        <main ref={scrollContainerRef} className="flex-1 overflow-auto">
+          {isEmpty ? (
+            /* Empty state */
+            <div className="h-full flex flex-col items-center justify-center px-6 py-0">
+              <div className="max-w-2xl w-full space-y-8">
+                <div className="text-center space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    What would you like to explore?
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Ask about weather, GitHub repos, crypto prices, or Hacker News
+                    -- the agent will fetch real data and build a dashboard.
+                  </p>
+                </div>
+
+                {/* Suggestions */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {SUGGESTIONS.map((s) => (
+                    <Button
+                      key={s.label}
+                      variant="outline"
+                      size="sm"
+                      className="text-muted-foreground"
+                      onClick={() => handleSubmit(s.prompt)}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {s.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* Message thread */
-          <div className="max-w-7xl mx-auto px-10 py-6 pb-24 space-y-6">
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isLast={index === messages.length - 1}
-                isStreaming={isStreaming}
-              />
-            ))}
+          ) : (
+            /* Message thread - Focus Mode */
+            <div className="max-w-4xl mx-auto px-10 py-6 pb-24 space-y-6">
+              {viewedIndex !== null && (
+                <div className="flex justify-center mb-4">
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    className="text-xs h-7 gap-1"
+                    onClick={() => setViewedIndex(null)}
+                  >
+                    Viewing History (Click to return to active chat)
+                  </Button>
+                </div>
+              )}
 
-            {/* Error display */}
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error.message}</AlertDescription>
-              </Alert>
-            )}
+              {displayedMessages.map((message, index) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isLast={index === displayedMessages.length - 1}
+                  isStreaming={isStreaming && viewedIndex === null && index === displayedMessages.length - 1}
+                />
+              ))}
 
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </main>
+              {/* Error display */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              )}
 
-      {/* Input bar - overlays bottom of chat area */}
-      <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-10 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
-        {/* Scroll to bottom button */}
-        {showScrollButton && !isEmpty && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="absolute left-1/2 -translate-x-1/2 -top-10 z-10 shadow-md pointer-events-auto"
-                onClick={scrollToBottom}
-              >
-                <ArrowDown className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Scroll to bottom</TooltipContent>
-          </Tooltip>
-        )}
-        <div
-          className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
-          style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
-          onMouseEnter={() => setInputHovered(true)}
-          onMouseLeave={() => setInputHovered(false)}
-        >
-          <Textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            placeholder={
-              isEmpty
-                ? "e.g., Compare weather in NYC, London, and Tokyo..."
-                : "Ask a follow-up..."
-            }
-            rows={inputExpanded ? 2 : 1}
-            className={[
-              "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
-              inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
-              inputExpanded ? "text-lg" : "text-sm",
-            ].join(" ")}
-            style={{
-              height: inputExpanded ? "82px" : "48px",
-              overflow: inputExpanded ? undefined : "hidden",
-              borderRadius: inputExpanded ? "1rem" : "9999px",
-              paddingLeft: inputExpanded ? "1rem" : "2.5rem",
-              paddingRight: inputExpanded ? "3rem" : "1.5rem",
-              paddingTop: inputExpanded ? "13px" : "12px",
-              paddingBottom: inputExpanded ? "13px" : "12px",
-            }}
-            autoFocus
-          />
-          <div
-            className="absolute right-2 bottom-2 transition-all duration-200"
-            style={{
-              opacity: inputExpanded ? 1 : 0,
-              pointerEvents: inputExpanded ? "auto" : "none",
-            }}
-          >
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </main>
+
+        {/* Input bar - overlays bottom of chat area */}
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-10 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
+          {/* Scroll to bottom button */}
+          {showScrollButton && !isEmpty && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  variant="outline"
                   size="icon-sm"
-                  onClick={() => handleSubmit()}
-                  disabled={!input.trim() || isStreaming}
+                  className="absolute left-1/2 -translate-x-1/2 -top-10 z-10 shadow-md pointer-events-auto"
+                  onClick={scrollToBottom}
                 >
-                  {isStreaming ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ArrowUp className="h-4 w-4" />
-                  )}
+                  <ArrowDown className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Send message</TooltipContent>
+              <TooltipContent>Scroll to bottom</TooltipContent>
             </Tooltip>
+          )}
+          <div
+            className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
+            style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
+            onMouseEnter={() => setInputHovered(true)}
+            onMouseLeave={() => setInputHovered(false)}
+          >
+            <Textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              placeholder={
+                isEmpty
+                  ? "e.g., Compare weather in NYC, London, and Tokyo..."
+                  : "Ask a follow-up..."
+              }
+              rows={inputExpanded ? 2 : 1}
+              className={[
+                "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
+                inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
+                inputExpanded ? "text-lg" : "text-sm",
+              ].join(" ")}
+              style={{
+                height: inputExpanded ? "82px" : "48px",
+                overflow: inputExpanded ? undefined : "hidden",
+                borderRadius: inputExpanded ? "1rem" : "9999px",
+                paddingLeft: inputExpanded ? "1rem" : "2.5rem",
+                paddingRight: inputExpanded ? "3rem" : "1.5rem",
+                paddingTop: inputExpanded ? "13px" : "12px",
+                paddingBottom: inputExpanded ? "13px" : "12px",
+              }}
+              autoFocus
+            />
+            <div
+              className="absolute right-2 bottom-2 transition-all duration-200"
+              style={{
+                opacity: inputExpanded ? 1 : 0,
+                pointerEvents: inputExpanded ? "auto" : "none",
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    onClick={() => handleSubmit()}
+                    disabled={!input.trim() || isStreaming}
+                  >
+                    {isStreaming ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Send message</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }
