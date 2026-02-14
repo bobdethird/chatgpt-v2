@@ -1033,6 +1033,96 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         {props.text}
       </DreiText>
     ),
+
+    // =========================================================================
+    // 2D Scene Components (SVG)
+    // =========================================================================
+
+    Scene2D: ({ props, children }) => (
+      <svg
+        width={props.width ?? "100%"}
+        height={props.height ?? "300px"}
+        viewBox={props.viewBox ?? undefined}
+        style={{
+          backgroundColor: props.background ?? undefined,
+          display: "block",
+          borderRadius: "0.5rem",
+        }}
+      >
+        {children}
+      </svg>
+    ),
+
+    Group2D: ({ props, children }) => {
+      let transform = props.transform ?? "";
+      if (!transform) {
+        const parts: string[] = [];
+        if (props.x || props.y) parts.push(`translate(${props.x ?? 0}, ${props.y ?? 0})`);
+        if (props.rotation) parts.push(`rotate(${props.rotation})`);
+        if (props.scale) parts.push(`scale(${props.scale})`);
+        transform = parts.join(" ");
+      }
+      return <g transform={transform}>{children}</g>;
+    },
+
+    Rect: ({ props }) => (
+      <rect
+        x={props.x}
+        y={props.y}
+        width={props.width}
+        height={props.height}
+        fill={props.fill ?? undefined}
+        stroke={props.stroke ?? undefined}
+        strokeWidth={props.strokeWidth ?? undefined}
+        rx={props.rx ?? undefined}
+      />
+    ),
+
+    Circle: ({ props }) => (
+      <circle
+        cx={props.cx}
+        cy={props.cy}
+        r={props.r}
+        fill={props.fill ?? undefined}
+        stroke={props.stroke ?? undefined}
+        strokeWidth={props.strokeWidth ?? undefined}
+      />
+    ),
+
+    Line: ({ props }) => (
+      <line
+        x1={props.x1}
+        y1={props.y1}
+        x2={props.x2}
+        y2={props.y2}
+        stroke={props.stroke ?? undefined}
+        strokeWidth={props.strokeWidth ?? undefined}
+        strokeDasharray={props.strokeDasharray ?? undefined}
+      />
+    ),
+
+    Path: ({ props }) => (
+      <path
+        d={props.d}
+        fill={props.fill ?? undefined}
+        stroke={props.stroke ?? undefined}
+        strokeWidth={props.strokeWidth ?? undefined}
+      />
+    ),
+
+    Text2D: ({ props }) => (
+      <text
+        x={props.x}
+        y={props.y}
+        fontSize={props.fontSize ?? undefined}
+        fill={props.fill ?? undefined}
+        textAnchor={props.textAnchor ?? undefined}
+        dominantBaseline={props.dominantBaseline ?? undefined}
+        fontWeight={props.fontWeight ?? undefined}
+      >
+        {props.text}
+      </text>
+    ),
   },
 
   actions: {},
