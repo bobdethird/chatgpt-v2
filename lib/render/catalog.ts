@@ -69,7 +69,7 @@ export const explorerCatalog = defineCatalog(schema, {
       }),
       slots: ["default"],
       description:
-        "Card container with optional title, description, and max-width constraint. maxWidth: xs=320px, sm=384px, md=448px, lg=512px, xl=576px, full=100%. centered: true horizontally centers the card via mx-auto.",
+        "Card container that wraps child elements (Stack, Metric, Separator, etc.) with visual grouping. Use as children of Grid for comparison layouts. ALWAYS define Card elements you reference — if Grid has children: ['a-card'], then 'a-card' MUST exist as a Card element with its own children array. maxWidth: xs=320px, sm=384px, md=448px, lg=512px, xl=576px, full=100%. centered: true horizontally centers via mx-auto.",
       example: {
         title: "Login",
         description: "Sign in to your account",

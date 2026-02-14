@@ -50,7 +50,7 @@ import {
 import { useLocalChat } from "@/lib/hooks/use-local-chat";
 import { MessageSquare, Plus } from "lucide-react";
 import { PromptPill } from "@/components/prompt-pill";
-import { generateGistTitle } from "@/lib/gist-title";
+
 
 // =============================================================================
 // Types
@@ -200,16 +200,21 @@ function ToolCallDisplay({
 
 function OutputBlock({
   rawPrompt,
+  aiTitle,
   children,
 }: {
   rawPrompt: string;
+  aiTitle?: string;
   children: React.ReactNode;
 }) {
-  const gistTitle = generateGistTitle(rawPrompt);
   return (
     <div className="w-full flex flex-col">
       <div className="sticky top-0 z-10 shrink-0 py-2 mb-2 bg-gradient-to-b from-background via-background/95 to-transparent">
-        <PromptPill gistTitle={gistTitle} rawPrompt={rawPrompt || undefined} />
+        <PromptPill
+          gistTitle={aiTitle}
+          rawPrompt={rawPrompt || undefined}
+          loading={!aiTitle}
+        />
       </div>
       <div className="min-h-0 flex-1">{children}</div>
     </div>
@@ -415,6 +420,7 @@ export default function ChatPage() {
     createChat,
     selectChat,
     saveMessages,
+    updateChatTitle,
     deleteChat,
     currentChat
   } = useLocalChat();
@@ -437,6 +443,80 @@ export default function ChatPage() {
       saveMessages(currentChatId, messages);
     }
   }, [messages, currentChatId, saveMessages]);
+
+  // --- AI title generation for sidebar chat name ---
+  const titleGenRef = useRef<Set<string>>(new Set()); // chat IDs already sent for title gen
+
+  useEffect(() => {
+    if (!currentChatId || !currentChat) return;
+    if (currentChat.title !== "New Chat") return; // already titled
+    if (titleGenRef.current.has(currentChatId)) return; // already in-flight
+
+    const firstUserMsg = messages.find((m) => m.role === "user");
+    if (!firstUserMsg) return;
+
+    let prompt = "";
+    if (typeof (firstUserMsg as any).content === "string") {
+      prompt = (firstUserMsg as any).content;
+    } else if (Array.isArray(firstUserMsg.parts)) {
+      const tp = firstUserMsg.parts.find((p: any) => p.type === "text");
+      if (tp) prompt = (tp as any).text;
+    }
+    if (!prompt.trim()) return;
+
+    titleGenRef.current.add(currentChatId);
+    const chatId = currentChatId; // capture for async closure
+    fetch("/api/title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.title) updateChatTitle(chatId, data.title);
+      })
+      .catch(() => {
+        // fallback: keep "New Chat" — will retry next render cycle
+        titleGenRef.current.delete(chatId);
+      });
+  }, [messages, currentChatId, currentChat, updateChatTitle]);
+
+  // --- AI title generation for per-exchange prompt pills ---
+  const [aiTitles, setAiTitles] = useState<Record<string, string>>({});
+  const titleFetchingRef = useRef<Set<string>>(new Set()); // prompts already in-flight
+
+  useEffect(() => {
+    // Find user messages whose prompt text doesn't have an AI title yet
+    const userMsgs = messages.filter((m) => m.role === "user");
+    for (const m of userMsgs) {
+      let prompt = "";
+      if (typeof (m as any).content === "string") {
+        prompt = (m as any).content;
+      } else if (Array.isArray(m.parts)) {
+        const tp = m.parts.find((p: any) => p.type === "text");
+        if (tp) prompt = (tp as any).text;
+      }
+      if (!prompt.trim()) continue;
+      const key = prompt.trim();
+      if (aiTitles[key] || titleFetchingRef.current.has(key)) continue;
+
+      titleFetchingRef.current.add(key);
+      fetch("/api/title", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: key }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.title) {
+            setAiTitles((prev) => ({ ...prev, [key]: data.title }));
+          }
+        })
+        .catch(() => {
+          titleFetchingRef.current.delete(key);
+        });
+    }
+  }, [messages]); // intentionally exclude aiTitles to avoid re-triggering
 
   // Load messages when switching chats
   useEffect(() => {
@@ -480,9 +560,10 @@ export default function ChatPage() {
       const textPart = m.parts.find((p: any) => p.type === "text");
       if (textPart) userText = (textPart as any).text;
     }
+    const key = userText.trim();
     return {
       index: idx,
-      summary: userText ? userText.slice(0, 50) : "Complex Input",
+      summary: aiTitles[key] || (userText ? userText.slice(0, 50) : "Complex Input"),
     };
   });
 
@@ -709,10 +790,7 @@ export default function ChatPage() {
                         key={item.index}
                         role="button"
                         tabIndex={0}
-                        className={`text-sm p-2.5 rounded-lg transition-all duration-150 select-none ${viewedIndex === item.index
-                            ? "bg-muted ring-1 ring-border/50"
-                            : "hover:bg-muted/60"
-                          } ${pinnedIndex === item.index ? "ring-1 ring-primary/40" : ""} cursor-pointer`}
+                        className={`text-sm p-2.5 rounded-lg transition-all duration-150 select-none ${viewedIndex === item.index ? "bg-muted ring-1 ring-border/50" : "hover:bg-muted/60"} ${pinnedIndex === item.index ? "ring-1 ring-primary/40" : ""} cursor-pointer`}
                         onMouseEnter={() => setViewedIndex(item.index)}
                         onFocus={() => setViewedIndex(item.index)}
                         onClick={() => {
@@ -722,7 +800,8 @@ export default function ChatPage() {
                       >
                         <div className="font-medium truncate">{item.summary}</div>
                       </div>
-                    ))}
+                    );
+                })}
                   </div>
 
                   <Button variant="outline" size="icon" className="h-10 w-10 rounded-full shadow-lg bg-background">

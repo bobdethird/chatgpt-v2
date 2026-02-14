@@ -374,6 +374,22 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         );
       }
 
+      // Normalize columns: accept both { key, label } and { accessorKey, header }
+      const normalizedColumns = (props.columns ?? []).map(
+        (col: Record<string, unknown>, i: number) => ({
+          key:
+            (col.key as string) ??
+            (col.accessorKey as string) ??
+            `col-${i}`,
+          label:
+            (col.label as string) ??
+            (col.header as string) ??
+            (col.key as string) ??
+            (col.accessorKey as string) ??
+            "",
+        }),
+      );
+
       const sorted = sortKey
         ? [...items].sort((a, b) => {
           const av = a[sortKey];
@@ -403,7 +419,7 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         <Table>
           <TableHeader>
             <TableRow>
-              {props.columns.map((col) => {
+              {normalizedColumns.map((col) => {
                 const SortIcon =
                   sortKey === col.key
                     ? sortDir === "asc"
@@ -428,9 +444,9 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
           <TableBody>
             {sorted.map((item, i) => (
               <TableRow key={i}>
-                {props.columns.map((col) => (
+                {normalizedColumns.map((col) => (
                   <TableCell key={col.key}>
-                    {String(item[col.key] ?? "")}
+                    {formatCellValue(item[col.key])}
                   </TableCell>
                 ))}
               </TableRow>
@@ -542,11 +558,25 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
           label: String(item[props.xKey] ?? ""),
         }));
 
-        const lineKeys = props.yKeys!;
+        const rawYKeys = props.yKeys! as Array<Record<string, unknown>>;
+        const lineKeys = rawYKeys.map((lk, i) => ({
+          key:
+            (lk.key as string) ??
+            (lk.dataKey as string) ??
+            (lk.id as string) ??
+            `line-${i}`,
+          label:
+            (lk.label as string) ??
+            (lk.name as string) ??
+            (lk.key as string) ??
+            (lk.dataKey as string) ??
+            "",
+          color: (lk.color as string) ?? undefined,
+        }));
         const chartConfig: ChartConfig = {};
         lineKeys.forEach((lk, i) => {
           chartConfig[lk.key] = {
-            label: lk.label ?? lk.key,
+            label: lk.label || lk.key,
             color: lk.color ?? CHART_COLORS[i % CHART_COLORS.length],
           };
         });
@@ -683,22 +713,29 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       );
     },
 
-    Tabs: ({ props, children, bindings }) => {
-      const [value, setValue] = useBoundProp<string>(
-        props.value as string | undefined,
-        bindings?.value,
-      );
-      const fallback = props.defaultValue ?? (props.tabs ?? [])[0]?.value;
-      const controlled = value !== undefined;
+    Tabs: ({ props, children }) => {
+      const rawTabs = (props.tabs ?? []) as Array<Record<string, unknown>>;
+      const normalizedTabs = rawTabs.map((tab, i) => ({
+        value:
+          (tab.value as string) ??
+          (tab.id as string) ??
+          (tab.key as string) ??
+          `tab-${i}`,
+        label:
+          (tab.label as string) ??
+          (tab.name as string) ??
+          (tab.title as string) ??
+          (tab.value as string) ??
+          (tab.id as string) ??
+          "",
+      }));
+      const fallback =
+        props.defaultValue ?? normalizedTabs[0]?.value;
 
       return (
-        <Tabs
-          {...(controlled
-            ? { value: value ?? fallback, onValueChange: (v: string) => setValue(v) }
-            : { defaultValue: fallback })}
-        >
+        <Tabs defaultValue={fallback}>
           <TabsList>
-            {(props.tabs ?? []).map((tab) => (
+            {normalizedTabs.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
                 {tab.label}
               </TabsTrigger>
@@ -784,61 +821,95 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       );
     },
 
-    Accordion: ({ props }) => (
-      <AccordionRoot
-        type={props.type === "single" ? "single" : "multiple"}
-        collapsible={props.type === "single" ? true : undefined}
-        className="w-full"
-      >
-        {(props.items ?? []).map((item, i) => (
-          <AccordionItem key={i} value={`item-${i}`}>
-            <AccordionTrigger>{item.title}</AccordionTrigger>
-            <AccordionContent>
-              <p className="text-muted-foreground">{item.content}</p>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </AccordionRoot>
-    ),
+    Accordion: ({ props }) => {
+      const rawItems = (props.items ?? []) as Array<Record<string, unknown>>;
+      const normalizedItems = rawItems.map((item) => ({
+        title:
+          (item.title as string) ??
+          (item.heading as string) ??
+          (item.label as string) ??
+          "",
+        content:
+          (item.content as string) ??
+          (item.body as string) ??
+          (item.description as string) ??
+          "",
+      }));
+      return (
+        <AccordionRoot
+          type={props.type === "single" ? "single" : "multiple"}
+          collapsible={props.type === "single" ? true : undefined}
+          className="w-full"
+        >
+          {normalizedItems.map((item, i) => (
+            <AccordionItem key={i} value={`item-${i}`}>
+              <AccordionTrigger>{item.title}</AccordionTrigger>
+              <AccordionContent>
+                <p className="text-muted-foreground">{item.content}</p>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </AccordionRoot>
+      );
+    },
 
-    Timeline: ({ props }) => (
-      <div className="relative pl-8">
-        {/* Vertical line centered on dots: dot is 12px wide starting at 0px, center = 6px */}
-        <div className="absolute left-[5.5px] top-3 bottom-3 w-px bg-border" />
-        <div className="flex flex-col gap-6">
-          {(props.items ?? []).map((item, i) => {
-            const dotColor =
-              item.status === "completed"
-                ? "bg-emerald-500"
-                : item.status === "current"
-                  ? "bg-blue-500"
-                  : "bg-muted-foreground/30";
-            return (
-              <div key={i} className="relative">
-                <div
-                  className={`absolute -left-8 top-0.5 h-3 w-3 rounded-full ${dotColor} ring-2 ring-background`}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    {item.date && (
-                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                        {item.date}
-                      </span>
+    Timeline: ({ props }) => {
+      const rawItems = (props.items ?? []) as Array<Record<string, unknown>>;
+      const normalizedItems = rawItems.map((item) => ({
+        title:
+          (item.title as string) ??
+          (item.heading as string) ??
+          (item.label as string) ??
+          "",
+        description:
+          (item.description as string) ??
+          (item.body as string) ??
+          (item.detail as string) ??
+          null,
+        date:
+          (item.date as string) ??
+          (item.dateLabel as string) ??
+          null,
+        status: (item.status as "completed" | "current" | "upcoming") ?? null,
+      }));
+      return (
+        <div className="relative pl-8">
+          <div className="absolute left-[5.5px] top-3 bottom-3 w-px bg-border" />
+          <div className="flex flex-col gap-6">
+            {normalizedItems.map((item, i) => {
+              const dotColor =
+                item.status === "completed"
+                  ? "bg-emerald-500"
+                  : item.status === "current"
+                    ? "bg-blue-500"
+                    : "bg-muted-foreground/30";
+              return (
+                <div key={i} className="relative">
+                  <div
+                    className={`absolute -left-8 top-0.5 h-3 w-3 rounded-full ${dotColor} ring-2 ring-background`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm">{item.title}</p>
+                      {item.date && (
+                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {item.date}
+                        </span>
+                      )}
+                    </div>
+                    {item.description && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {item.description}
+                      </p>
                     )}
                   </div>
-                  {item.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {item.description}
-                    </p>
-                  )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-    ),
+      );
+    },
 
     PieChart: ({ props }) => {
       const rawData = props.data;
@@ -908,6 +979,22 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       );
       const current = value ?? "";
 
+      const rawOptions = (props.options ?? []) as Array<Record<string, unknown>>;
+      const normalizedOptions = rawOptions.map((opt, i) => ({
+        value:
+          (opt.value as string) ??
+          (opt.id as string) ??
+          (opt.key as string) ??
+          `opt-${i}`,
+        label:
+          (opt.label as string) ??
+          (opt.text as string) ??
+          (opt.name as string) ??
+          (opt.value as string) ??
+          (opt.id as string) ??
+          "",
+      }));
+
       return (
         <div className="flex flex-col gap-2">
           {props.label && (
@@ -917,7 +1004,7 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
             value={current}
             onValueChange={(v: string) => setValue(v)}
           >
-            {(props.options ?? []).map((opt) => (
+            {normalizedOptions.map((opt) => (
               <div key={opt.value} className="flex items-center gap-2">
                 <RadioGroupItem value={opt.value} id={`rg-${opt.value}`} />
                 <Label
@@ -940,6 +1027,22 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       );
       const current = value ?? "";
 
+      const rawOptions = (props.options ?? []) as Array<Record<string, unknown>>;
+      const normalizedOptions = rawOptions.map((opt, i) => ({
+        value:
+          (opt.value as string) ??
+          (opt.id as string) ??
+          (opt.key as string) ??
+          `opt-${i}`,
+        label:
+          (opt.label as string) ??
+          (opt.text as string) ??
+          (opt.name as string) ??
+          (opt.value as string) ??
+          (opt.id as string) ??
+          "",
+      }));
+
       return (
         <div className="flex flex-col gap-2">
           {props.label && (
@@ -950,7 +1053,7 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
               <SelectValue placeholder={props.placeholder ?? "Select..."} />
             </SelectTrigger>
             <SelectContent>
-              {(props.options ?? []).map((opt) => (
+              {normalizedOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
@@ -1244,6 +1347,29 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
 
   actions: {},
 });
+
+// =============================================================================
+// Table Helpers
+// =============================================================================
+
+/** Render a table cell value as a readable string, handling nested objects. */
+function formatCellValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value !== "object") return String(value);
+  // Common patterns: { text: "..." }, { name: "..." }, { label: "..." }
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.text === "string") return obj.text;
+  if (typeof obj.name === "string") return obj.name;
+  if (typeof obj.label === "string") return obj.label;
+  // Arrays: join values
+  if (Array.isArray(value)) return value.map(formatCellValue).join(", ");
+  // Fallback: compact JSON
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
 
 // =============================================================================
 // Chart Helpers
