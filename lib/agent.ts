@@ -76,10 +76,16 @@ PATTERN — Financial chart time ranges:
 
 PATTERN — Progressive disclosure:
 - Lead with the most important information (Metric, headline stat), then use Accordion or Tabs for supporting detail. Don't dump everything at the top level.
-- Prefer 1 rich, well-structured Card over 3 sparse Cards. Consolidate related information.
 
-PATTERN — Consistent card grids:
-- When using Grid with multiple Cards, each card should follow the same internal layout pattern (e.g. all have a header row with title left + badge right, then a metric, then supporting text).
+PATTERN — Grid with Card children:
+- When using Grid for comparison (e.g. 3 cities, 3 products), ALWAYS create an actual Card element for EACH grid cell. The Grid's children array MUST reference Card element keys, and you MUST define each Card element in the elements map.
+- Each Card wraps its inner content (Stack, Metric, Separator, etc.) as children. Do NOT skip the Card wrapper — the Grid needs Card children for proper visual grouping.
+- All Cards in the same Grid should follow the same internal layout pattern (e.g. all have a header row with title left + icon right, then metrics, then details).
+- Example JSONL for a 3-column Grid with Cards:
+  {"op":"add","path":"/elements/grid","value":{"type":"Grid","props":{"columns":"3","gap":"md"},"children":["card-a","card-b","card-c"]}}
+  {"op":"add","path":"/elements/card-a","value":{"type":"Card","props":{"title":"Item A"},"children":["a-header","a-metrics"]}}
+  {"op":"add","path":"/elements/a-header","value":{"type":"Stack","props":{"direction":"horizontal","justify":"between","align":"center"},"children":["a-title","a-icon"]}}
+  ... then define card-b, card-c with the same structure.
 
 CHOOSING BETWEEN 2D AND 3D:
 - Use 2D (Scene2D) for: Abstract concepts, diagrams, flowcharts, process maps, schematics, floor plans, simple illustrations, flat geometry, graphs, and data visualization.
@@ -216,11 +222,11 @@ ${explorerCatalog.prompt({
     "Keep the UI clean and information-dense — no excessive padding or empty space.",
     "For educational prompts ('teach me about', 'explain', 'what is'), use a mix of Callout, Accordion, Timeline, and charts to make the content visually rich.",
     "Inside Cards, use Stack(direction='horizontal', justify='between', align='center') to distribute content across the full width — put primary info on the left and supplementary elements (Avatar, Badge, small Metric) on the right.",
-    "For weather cards: place location + condition on the left, weather icon Avatar on the right. For repo cards: name + description left, stars Badge right. Always think about what can go on the right side.",
+    "Inside each weather Card component: place location + condition on the left, weather icon Avatar on the right via a horizontal Stack. Inside each repo Card component: name + description left, stars Badge right. Always think about what can go on the right side of a horizontal layout.",
     "For financial data (stocks, crypto), use Tabs for time range selection (1D, 5D, 1M, 6M, YTD, 1Y) with a LineChart in each TabContent bound to the appropriate state path. ALWAYS set defaultValue to '1d' so the chart opens on the shortest time range first. ALWAYS use { '$bindState': '/activeRange' } on the Tabs value prop, and use visible conditions on Metrics/Text so they update when the tab changes (e.g. price change %, period high/low). This mirrors how Robinhood, Yahoo Finance, etc. display price data.",
     "Grid is the correct layout for catalog/browsing content (products, articles, stories, repos) where users scan many items at a glance — even with many items. Think Amazon product grid.",
     "When showing a dashboard with multiple data categories (Overview, Details, History), use Tabs at the top level to organize them rather than a long vertical scroll.",
-    "Prefer 1 rich, well-structured Card over 3 sparse Cards. Consolidate related information.",
+    "When a Grid has Card children, EVERY key in the Grid's children array MUST be defined as a Card element. Never reference a Card key without defining it.",
   ],
 })}`;
 

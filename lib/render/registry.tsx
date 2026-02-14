@@ -429,7 +429,7 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
               <TableRow key={i}>
                 {props.columns.map((col) => (
                   <TableCell key={col.key}>
-                    {String(item[col.key] ?? "")}
+                    {formatCellValue(item[col.key])}
                   </TableCell>
                 ))}
               </TableRow>
@@ -682,20 +682,11 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       );
     },
 
-    Tabs: ({ props, children, bindings }) => {
-      const [value, setValue] = useBoundProp<string>(
-        props.value as string | undefined,
-        bindings?.value,
-      );
+    Tabs: ({ props, children }) => {
       const fallback = props.defaultValue ?? (props.tabs ?? [])[0]?.value;
-      const controlled = value !== undefined;
 
       return (
-        <Tabs
-          {...(controlled
-            ? { value: value ?? fallback, onValueChange: (v: string) => setValue(v) }
-            : { defaultValue: fallback })}
-        >
+        <Tabs defaultValue={fallback}>
           <TabsList>
             {(props.tabs ?? []).map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
@@ -1237,6 +1228,29 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
 
   actions: {},
 });
+
+// =============================================================================
+// Table Helpers
+// =============================================================================
+
+/** Render a table cell value as a readable string, handling nested objects. */
+function formatCellValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value !== "object") return String(value);
+  // Common patterns: { text: "..." }, { name: "..." }, { label: "..." }
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.text === "string") return obj.text;
+  if (typeof obj.name === "string") return obj.name;
+  if (typeof obj.label === "string") return obj.label;
+  // Arrays: join values
+  if (Array.isArray(value)) return value.map(formatCellValue).join(", ");
+  // Fallback: compact JSON
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
 
 // =============================================================================
 // Chart Helpers
