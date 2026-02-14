@@ -77,8 +77,8 @@ const SUGGESTIONS = [
     prompt: "Show me stats for the vercel/next.js and vercel/ai GitHub repos",
   },
   {
-    label: "Crypto dashboard",
-    prompt: "Build a crypto dashboard for Bitcoin, Ethereum, and Solana",
+    label: "Stock prices",
+    prompt: "Check the stock price of TQQQ, Nvidia, and Apple",
   },
   {
     label: "Hacker News top stories",
@@ -435,7 +435,6 @@ export default function ChatPage() {
   const historyItems = messages
     .map((m, i) => ({ ...m, index: i }))
     .filter((m) => m.role === "user")
-    .slice(0, -1) // Exclude the most recent user message (current turn)
     .map((m) => {
       // Find the next message (assistant response)
       const assistantMsg = messages[m.index + 1];
@@ -615,17 +614,21 @@ export default function ChatPage() {
               {/* The Bubble Content - Revealed on Hover */}
               <div className="mb-2 w-72 max-h-[60vh] overflow-y-auto bg-popover border rounded-xl shadow-xl p-2 opacity-0 scale-95 origin-bottom-right transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 hidden group-hover:flex flex-col gap-1">
                 <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Current Session</div>
-                {historyItems.map((item) => (
+                {historyItems.map((item, i) => {
+                  const isLatest = i === 0; // historyItems is reversed, so index 0 = newest
+                  const isActive = isLatest && viewedIndex === null;
+                  return (
                   <div
                     key={item.index}
-                    className={`text-sm p-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${viewedIndex === item.index ? "bg-muted" : ""}`}
-                    onClick={() => setViewedIndex(item.index)}
+                    className={`text-sm p-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${viewedIndex === item.index || isActive ? "bg-muted" : ""}`}
+                    onClick={() => setViewedIndex(isLatest ? null : item.index)}
                   >
                     {/* We can improve this label to show prompt + snippet if available */}
                     <div className="font-medium truncate">{item.summary}</div>
                     {/* Assuming we can get the assistant response snippet easily, but for now summary is the prompt */}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* The Toggle Button */}
@@ -646,10 +649,6 @@ export default function ChatPage() {
                   <h2 className="text-2xl font-semibold tracking-tight">
                     What would you like to explore?
                   </h2>
-                  <p className="text-muted-foreground">
-                    Ask about weather, GitHub repos, crypto prices, or Hacker News
-                    -- the agent will fetch real data and build a dashboard.
-                  </p>
                 </div>
 
                 {/* Suggestions */}
