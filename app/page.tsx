@@ -437,7 +437,7 @@ export default function ChatPage() {
           </div>
         ) : (
           /* Message thread */
-          <div className="max-w-4xl mx-auto px-10 py-6 pb-24 space-y-6">
+          <div className="max-w-7xl mx-auto px-10 py-6 pb-24 space-y-6">
             {messages.map((message, index) => (
               <MessageBubble
                 key={message.id}
@@ -461,7 +461,7 @@ export default function ChatPage() {
       </main>
 
       {/* Input bar - overlays bottom of chat area */}
-      <div className="absolute bottom-0 left-0 right-0 px-6 pb-3 pt-8 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
+      <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-10 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
         {/* Scroll to bottom button */}
         {showScrollButton && !isEmpty && (
           <Tooltip>
@@ -478,7 +478,7 @@ export default function ChatPage() {
             <TooltipContent>Scroll to bottom</TooltipContent>
           </Tooltip>
         )}
-        <div className="max-w-xl mx-auto relative pointer-events-auto">
+        <div className="max-w-lg mx-auto relative pointer-events-auto">
           <Textarea
             ref={inputRef}
             value={input}
@@ -490,7 +490,7 @@ export default function ChatPage() {
                 : "Ask a follow-up..."
             }
             rows={2}
-            className="resize-none rounded-2xl bg-card px-4 py-[13px] pr-12 min-h-0 shadow-sm focus-visible:ring-0 focus-visible:border-input"
+            className="resize-none rounded-2xl bg-card px-4 py-[13px] pr-12 min-h-0 shadow-sm focus-visible:ring-0 focus-visible:border-input text-lg"
             autoFocus
           />
           <Tooltip>
