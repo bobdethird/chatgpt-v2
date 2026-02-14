@@ -21,7 +21,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ArrowDown,
   ArrowUp,
   ChevronRight,
   Code2,
@@ -365,9 +364,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const isStickToBottom = useRef(true);
-  const isAutoScrolling = useRef(false);
+  
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [inputHovered, setInputHovered] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
@@ -507,51 +504,7 @@ export default function ChatPage() {
   }, [status]);
 
 
-  // Track whether the user has scrolled away from the bottom.
-  // During programmatic scrolling, suppress button updates until we arrive.
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const THRESHOLD = 80;
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const atBottom = scrollTop + clientHeight >= scrollHeight - THRESHOLD;
-
-      if (isAutoScrolling.current) {
-        // Wait for the programmatic scroll to reach the bottom before
-        // handing control back to the user-scroll tracker.
-        if (atBottom) {
-          isAutoScrolling.current = false;
-        }
-        return;
-      }
-
-      isStickToBottom.current = atBottom;
-      setShowScrollButton(!atBottom);
-    };
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !isStickToBottom.current) return;
-    isAutoScrolling.current = true;
-    container.scrollTop = container.scrollHeight;
-    requestAnimationFrame(() => {
-      isAutoScrolling.current = false;
-    });
-  }, [messages, displayedMessages, isStreaming]);
-
-  const scrollToBottom = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    isStickToBottom.current = true;
-    setShowScrollButton(false);
-    isAutoScrolling.current = true;
-    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, []);
+  
 
   const handleSubmit = useCallback(
     async (text?: string) => {
@@ -757,22 +710,7 @@ export default function ChatPage() {
 
         {/* Input bar - overlays bottom of chat area */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-10 bg-gradient-to-t from-background/60 to-transparent pointer-events-none z-10">
-          {/* Scroll to bottom button */}
-          {showScrollButton && !isEmpty && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  className="absolute left-1/2 -translate-x-1/2 -top-10 z-10 shadow-md pointer-events-auto"
-                  onClick={scrollToBottom}
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Scroll to bottom</TooltipContent>
-            </Tooltip>
-          )}
+          
           <div
             className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
             style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
