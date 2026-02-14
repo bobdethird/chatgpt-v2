@@ -301,6 +301,8 @@ export default function ChatPage() {
   const isStickToBottom = useRef(true);
   const isAutoScrolling = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [inputHovered, setInputHovered] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const { messages, sendMessage, setMessages, status, error } =
     useChat<AppMessage>({ transport });
@@ -383,6 +385,14 @@ export default function ChatPage() {
   }, [setMessages]);
 
   const isEmpty = messages.length === 0;
+  const inputExpanded = inputHovered || input.length > 0 || isEmpty;
+
+  // Auto-focus textarea when pill expands
+  useEffect(() => {
+    if (inputExpanded) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [inputExpanded]);
 
   return (
     <TooltipProvider>
@@ -478,38 +488,65 @@ export default function ChatPage() {
             <TooltipContent>Scroll to bottom</TooltipContent>
           </Tooltip>
         )}
-        <div className="max-w-lg mx-auto relative pointer-events-auto">
+        <div
+          className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
+          style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
+          onMouseEnter={() => setInputHovered(true)}
+          onMouseLeave={() => setInputHovered(false)}
+        >
           <Textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             placeholder={
               isEmpty
                 ? "e.g., Compare weather in NYC, London, and Tokyo..."
                 : "Ask a follow-up..."
             }
-            rows={2}
-            className="resize-none rounded-2xl bg-card px-4 py-[13px] pr-12 min-h-0 shadow-sm focus-visible:ring-0 focus-visible:border-input text-lg"
+            rows={inputExpanded ? 2 : 1}
+            className={[
+              "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
+              inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
+              inputExpanded ? "text-lg" : "text-sm",
+            ].join(" ")}
+            style={{
+              height: inputExpanded ? "82px" : "48px",
+              overflow: inputExpanded ? undefined : "hidden",
+              borderRadius: inputExpanded ? "1rem" : "9999px",
+              paddingLeft: inputExpanded ? "1rem" : "2.5rem",
+              paddingRight: inputExpanded ? "3rem" : "1.5rem",
+              paddingTop: inputExpanded ? "13px" : "12px",
+              paddingBottom: inputExpanded ? "13px" : "12px",
+            }}
             autoFocus
           />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon-sm"
-                className="absolute right-2 bottom-2"
-                onClick={() => handleSubmit()}
-                disabled={!input.trim() || isStreaming}
-              >
-                {isStreaming ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowUp className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Send message</TooltipContent>
-          </Tooltip>
+          <div
+            className="absolute right-2 bottom-2 transition-all duration-200"
+            style={{
+              opacity: inputExpanded ? 1 : 0,
+              pointerEvents: inputExpanded ? "auto" : "none",
+            }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim() || isStreaming}
+                >
+                  {isStreaming ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Send message</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
     </div>
