@@ -589,6 +589,17 @@ export default function ChatPage() {
   const isEmpty = messages.length === 0;
   const inputExpanded = inputHovered || input.length > 0 || isEmpty;
 
+  // Auto-resize textarea height based on content
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea && inputExpanded) {
+      textarea.style.height = "auto";
+      const scrollH = textarea.scrollHeight;
+      // min 48px (matches pill), max 200px
+      textarea.style.height = `${Math.min(Math.max(scrollH, 48), 200)}px`;
+    }
+  }, [input, inputExpanded]);
+
   // Auto-focus textarea when pill expands
   useEffect(() => {
     if (inputExpanded) {
@@ -764,7 +775,7 @@ export default function ChatPage() {
           )}
           <div
             className="mx-auto relative pointer-events-auto transition-all duration-300 ease-in-out"
-            style={{ maxWidth: inputExpanded ? "48rem" : "12rem" }}
+            style={{ maxWidth: inputExpanded ? "32rem" : "12rem" }}
             onMouseEnter={() => setInputHovered(true)}
             onMouseLeave={() => setInputHovered(false)}
           >
@@ -780,20 +791,22 @@ export default function ChatPage() {
                   ? "e.g., Compare weather in NYC, London, and Tokyo..."
                   : "Ask a follow-up..."
               }
-              rows={inputExpanded ? 2 : 1}
+              rows={1}
               className={[
                 "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
                 inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
                 inputExpanded ? "text-lg" : "text-sm",
               ].join(" ")}
               style={{
-                height: inputExpanded ? "82px" : "48px",
-                overflow: inputExpanded ? undefined : "hidden",
+                height: inputExpanded ? undefined : "48px",
+                minHeight: inputExpanded ? "48px" : undefined,
+                maxHeight: inputExpanded ? "200px" : undefined,
+                overflow: inputExpanded ? "auto" : "hidden",
                 borderRadius: inputExpanded ? "1rem" : "9999px",
                 paddingLeft: inputExpanded ? "1rem" : "2.5rem",
                 paddingRight: inputExpanded ? "3rem" : "1.5rem",
-                paddingTop: inputExpanded ? "13px" : "12px",
-                paddingBottom: inputExpanded ? "13px" : "12px",
+                paddingTop: "12px",
+                paddingBottom: "12px",
               }}
               autoFocus
             />
