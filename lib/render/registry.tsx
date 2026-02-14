@@ -352,115 +352,89 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
     },
 
     Table: ({ props }) => {
-      type Cell = string | { text: string; icon?: string | null };
-      const columns: string[] = Array.isArray(props.columns)
-        ? props.columns
-        : [];
-      const rows: Cell[][] = Array.isArray(props.rows) ? props.rows : [];
+      const rawData = props.data;
+      const items: Array<Record<string, unknown>> = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray((rawData as Record<string, unknown>)?.data)
+          ? ((rawData as Record<string, unknown>).data as Array<
+              Record<string, unknown>
+            >)
+          : [];
 
-      const cellText = (cell: Cell): string =>
-        typeof cell === "string" ? cell : cell.text;
-
-      const [sortCol, setSortCol] = useState<number | null>(null);
+      const [sortKey, setSortKey] = useState<string | null>(null);
       const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-      const handleSort = (colIndex: number) => {
-        if (sortCol === colIndex) {
+      if (items.length === 0) {
+        return (
+          <div className="text-center py-4 text-muted-foreground">
+            {props.emptyMessage ?? "No data"}
+          </div>
+        );
+      }
+
+      const sorted = sortKey
+        ? [...items].sort((a, b) => {
+            const av = a[sortKey];
+            const bv = b[sortKey];
+            // numeric comparison when both values are numbers
+            if (typeof av === "number" && typeof bv === "number") {
+              return sortDir === "asc" ? av - bv : bv - av;
+            }
+            const as = String(av ?? "");
+            const bs = String(bv ?? "");
+            return sortDir === "asc"
+              ? as.localeCompare(bs)
+              : bs.localeCompare(as);
+          })
+        : items;
+
+      const handleSort = (key: string) => {
+        if (sortKey === key) {
           setSortDir((d) => (d === "asc" ? "desc" : "asc"));
         } else {
-          setSortCol(colIndex);
+          setSortKey(key);
           setSortDir("asc");
         }
       };
 
-      const sorted =
-        sortCol !== null
-          ? [...rows].sort((a, b) => {
-            const av = cellText(a[sortCol] ?? "");
-            const bv = cellText(b[sortCol] ?? "");
-            return sortDir === "asc"
-              ? av.localeCompare(bv, undefined, { numeric: true })
-              : bv.localeCompare(av, undefined, { numeric: true });
-          })
-          : rows;
-
-      const resetSort = () => {
-        setSortCol(null);
-        setSortDir("asc");
-      };
-
       return (
-        <div className="flex flex-col gap-2">
-          {sortCol !== null && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                onClick={resetSort}
-              >
-                <X className="h-3 w-3" />
-                Reset sort
-              </button>
-            </div>
-          )}
-          <Table>
-            {props.caption && (
-              <caption className="mt-4 text-sm text-muted-foreground">
-                {props.caption}
-              </caption>
-            )}
-            <TableHeader>
-              <TableRow>
-                {columns.map((col, i) => {
-                  const SortIcon =
-                    sortCol === i
-                      ? sortDir === "asc"
-                        ? ArrowUp
-                        : ArrowDown
-                      : ArrowUpDown;
-                  return (
-                    <TableHead key={i}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                        onClick={() => handleSort(i)}
-                      >
-                        {col}
-                        <SortIcon className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sorted.map((row, i) => {
-                if (!Array.isArray(row)) return null;
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {props.columns.map((col) => {
+                const SortIcon =
+                  sortKey === col.key
+                    ? sortDir === "asc"
+                      ? ArrowUp
+                      : ArrowDown
+                    : ArrowUpDown;
                 return (
-                  <TableRow key={i}>
-                    {row.map((cell, j) => (
-                      <TableCell key={j}>
-                        {typeof cell === "string" ? (
-                          cell
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5">
-                            {cell.icon && (
-                              <ShadAvatar size="sm">
-                                <AvatarImage src={cell.icon} alt="" />
-                                <AvatarFallback>?</AvatarFallback>
-                              </ShadAvatar>
-                            )}
-                            {cell.text}
-                          </span>
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                  <TableHead key={col.key}>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.label}
+                      <SortIcon className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </TableHead>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.map((item, i) => (
+              <TableRow key={i}>
+                {props.columns.map((col) => (
+                  <TableCell key={col.key}>
+                    {String(item[col.key] ?? "")}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       );
     },
 
