@@ -69,6 +69,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  X,
 } from "lucide-react";
 
 // 3D imports
@@ -369,16 +370,34 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
             })
           : props.rows;
 
+      const resetSort = () => {
+        setSortCol(null);
+        setSortDir("asc");
+      };
+
       return (
-        <Table>
-          {props.caption && (
-            <caption className="mt-4 text-sm text-muted-foreground">
-              {props.caption}
-            </caption>
+        <div className="flex flex-col gap-2">
+          {sortCol !== null && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={resetSort}
+              >
+                <X className="h-3 w-3" />
+                Reset sort
+              </button>
+            </div>
           )}
-          <TableHeader>
-            <TableRow>
-              {props.columns.map((col, i) => {
+          <Table>
+            {props.caption && (
+              <caption className="mt-4 text-sm text-muted-foreground">
+                {props.caption}
+              </caption>
+            )}
+            <TableHeader>
+              <TableRow>
+                {props.columns.map((col, i) => {
                 const SortIcon =
                   sortCol === i
                     ? sortDir === "asc"
@@ -410,6 +429,7 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
             ))}
           </TableBody>
         </Table>
+        </div>
       );
     },
 
