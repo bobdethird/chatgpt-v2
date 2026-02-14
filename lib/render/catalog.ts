@@ -629,6 +629,145 @@ export const explorerCatalog = defineCatalog(schema, {
         fontSize: 0.8,
       },
     },
+    // =========================================================================
+    // 2D Scene Components (SVG)
+    // =========================================================================
+
+    Scene2D: {
+      props: z.object({
+        width: z.string().nullable(),
+        height: z.string().nullable(),
+        viewBox: z.string().nullable(),
+        background: z.string().nullable(),
+      }),
+      slots: ["default"],
+      description:
+        "2D SVG scene container. All 2D components must be children of Scene2D. width/height are CSS values (e.g. '100%', '500px'). viewBox defines the coordinate system 'min-x min-y width height'.",
+      example: {
+        width: "100%",
+        height: "400px",
+        viewBox: "0 0 800 600",
+        background: "#f0f0f0",
+      },
+    },
+
+    Group2D: {
+      props: z.object({
+        transform: z.string().nullable(),
+        x: z.number().nullable(),
+        y: z.number().nullable(),
+        rotation: z.number().nullable(),
+        scale: z.number().nullable(),
+      }),
+      slots: ["default"],
+      description:
+        "2D group container for transforming children together. Supports SVG transform string or individual x/y/rotation/scale properties.",
+      example: {
+        x: 100,
+        y: 100,
+        rotation: 45,
+        scale: 1.5,
+      },
+    },
+
+    Rect: {
+      props: z.object({
+        x: z.number(),
+        y: z.number(),
+        width: z.number(),
+        height: z.number(),
+        fill: z.string().nullable(),
+        stroke: z.string().nullable(),
+        strokeWidth: z.number().nullable(),
+        rx: z.number().nullable(),
+      }),
+      description: "2D rectangle. rx is corner radius.",
+      example: {
+        x: 10,
+        y: 10,
+        width: 100,
+        height: 50,
+        fill: "#ff0000",
+        rx: 5,
+      },
+    },
+
+    Circle: {
+      props: z.object({
+        cx: z.number(),
+        cy: z.number(),
+        r: z.number(),
+        fill: z.string().nullable(),
+        stroke: z.string().nullable(),
+        strokeWidth: z.number().nullable(),
+      }),
+      description: "2D circle.",
+      example: {
+        cx: 50,
+        cy: 50,
+        r: 25,
+        fill: "#00ff00",
+      },
+    },
+
+    Line: {
+      props: z.object({
+        x1: z.number(),
+        y1: z.number(),
+        x2: z.number(),
+        y2: z.number(),
+        stroke: z.string().nullable(),
+        strokeWidth: z.number().nullable(),
+        strokeDasharray: z.string().nullable(),
+      }),
+      description: "2D line segment.",
+      example: {
+        x1: 0,
+        y1: 0,
+        x2: 100,
+        y2: 100,
+        stroke: "#0000ff",
+        strokeWidth: 2,
+      },
+    },
+
+    Path: {
+      props: z.object({
+        d: z.string(),
+        fill: z.string().nullable(),
+        stroke: z.string().nullable(),
+        strokeWidth: z.number().nullable(),
+      }),
+      description: "2D path using SVG path data syntax (M, L, C, Z, etc.).",
+      example: {
+        d: "M 10 10 L 50 10 L 30 50 Z",
+        fill: "none",
+        stroke: "black",
+      },
+    },
+
+    Text2D: {
+      props: z.object({
+        text: z.string(),
+        x: z.number(),
+        y: z.number(),
+        fontSize: z.number().nullable(),
+        fill: z.string().nullable(),
+        textAnchor: z.enum(["start", "middle", "end"]).nullable(),
+        dominantBaseline: z
+          .enum(["auto", "middle", "hanging", "central"])
+          .nullable(),
+        fontWeight: z.union([z.string(), z.number()]).nullable(),
+      }),
+      description: "2D text label.",
+      example: {
+        text: "Hello World",
+        x: 100,
+        y: 100,
+        fontSize: 16,
+        fill: "#333",
+      },
+    },
   },
 
   actions: {},

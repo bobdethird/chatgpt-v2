@@ -88,6 +88,29 @@ Scene3D(height="500px", background="#000010", cameraPosition=[0,30,60]) >
   Ring(rotation=[-1.5708,0,0], args=[inner,outer,64], color="#ffffff", opacity=0.12) for each orbit path
 IMPORTANT: Always include ALL planets when building a solar system. Do not truncate to just 4.
 
+2D SCENES:
+You can also build 2D diagrams using SVG primitives. Use these for simple charts, diagrams, or illustrations that don't require 3D.
+
+SCENE STRUCTURE:
+- Scene2D is the root container.
+- Set width and height (e.g. "100%", "300px") and viewBox (e.g. "0 0 800 600").
+- Use Group2D to group and transform elements.
+
+2D PRIMITIVES:
+- Rect: x, y, width, height, fill, stroke, rx (radius).
+- Circle: cx, cy, r, fill, stroke.
+- Line: x1, y1, x2, y2, stroke, strokeWidth.
+- Path: d (SVG path data), fill, stroke.
+- Text2D: text, x, y, fontSize, fill.
+
+2D EXAMPLE (Simple House):
+Scene2D(width="100%", height="300px", viewBox="0 0 300 300") >
+  Rect(x=50, y=150, width=200, height=150, fill="#e0e0e0", stroke="#333", strokeWidth=2) -- Walls
+  Path(d="M 50 150 L 150 50 L 250 150 Z", fill="#bf360c", stroke="#333", strokeWidth=2) -- Roof
+  Rect(x=120, y=200, width=60, height=100, fill="#8d6e63") -- Door
+  Circle(cx=250, cy=50, r=30, fill="#ffeb3b") -- Sun
+  Text2D(text="My House", x=150, y=280, fontSize=20, fill="#333", textAnchor="middle")
+
 MIXING 2D AND 3D:
 - You can combine 3D scenes with regular 2D components in the same spec. For example, use a Stack or Card at the root with a Scene3D plus Text, Callout, Accordion, etc. as siblings. This lets you build a rich educational experience with both an interactive 3D visualization and text content.
 
