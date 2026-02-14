@@ -209,11 +209,13 @@ function OutputBlock({
 }) {
   return (
     <div className="w-full flex flex-col">
-      {aiTitle && (
-        <div className="sticky top-0 z-10 shrink-0 py-2 mb-2 bg-gradient-to-b from-background via-background/95 to-transparent">
-          <PromptPill gistTitle={aiTitle} rawPrompt={rawPrompt || undefined} />
-        </div>
-      )}
+      <div className="sticky top-0 z-10 shrink-0 py-2 mb-2 bg-gradient-to-b from-background via-background/95 to-transparent">
+        <PromptPill
+          gistTitle={aiTitle}
+          rawPrompt={rawPrompt || undefined}
+          loading={!aiTitle}
+        />
+      </div>
       <div className="min-h-0 flex-1">{children}</div>
     </div>
   );

@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PromptPillProps {
-  gistTitle: string;
+  gistTitle?: string;
   rawPrompt?: string;
+  loading?: boolean;
 }
 
-export function PromptPill({ gistTitle, rawPrompt }: PromptPillProps) {
+export function PromptPill({ gistTitle, rawPrompt, loading }: PromptPillProps) {
   const [expanded, setExpanded] = useState(false);
-  const hasExpandablePrompt = rawPrompt && rawPrompt.trim() !== gistTitle;
+  const hasExpandablePrompt =
+    gistTitle && rawPrompt && rawPrompt.trim() !== gistTitle;
 
   return (
     <div
@@ -21,12 +24,16 @@ export function PromptPill({ gistTitle, rawPrompt }: PromptPillProps) {
       onMouseEnter={() => hasExpandablePrompt && setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
       role={hasExpandablePrompt ? "button" : undefined}
-      aria-label={gistTitle}
+      aria-label={gistTitle ?? "Loading title"}
     >
       <div className="px-4 py-2.5">
-        <span className="text-lg font-semibold tracking-tight text-foreground">
-          {gistTitle}
-        </span>
+        {loading && !gistTitle ? (
+          <Skeleton className="h-6 w-48 rounded-md" />
+        ) : (
+          <span className="text-lg font-semibold tracking-tight text-foreground">
+            {gistTitle}
+          </span>
+        )}
       </div>
       {hasExpandablePrompt && (
         <div
