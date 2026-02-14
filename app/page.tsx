@@ -2,10 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
-import { Send, Mic, Paperclip, ChevronDown, User, Plus } from "lucide-react";
+import { ArrowUp, Mic, Paperclip, ChevronDown, User, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +49,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       {/* Header */}
-      <header className="fixed top-0 w-full z-10 flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+      <header className="fixed top-0 w-full z-10 flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-900">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -67,12 +66,6 @@ export default function ChatPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center gap-2">
-           <Avatar className="w-8 h-8 cursor-pointer">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-purple-600 text-white text-xs">U</AvatarFallback>
-          </Avatar>
-        </div>
       </header>
 
       {/* Main Content Area */}
@@ -169,7 +162,7 @@ export default function ChatPage() {
                 size="icon"
                 className={`h-8 w-8 rounded-full transition-all duration-200 ${input.trim() ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-zinc-200 text-zinc-400 dark:bg-zinc-700 dark:text-zinc-500 cursor-not-allowed'}`}
                >
-                 <Send className="w-4 h-4" />
+                 <ArrowUp className="w-4 h-4" />
                </Button>
             </div>
           </div>
