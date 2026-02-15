@@ -224,7 +224,10 @@ ${explorerCatalog.prompt({
   ],
 })}`;
 
-export const agent = new ToolLoopAgent({
+// Export a factory to create the agent with session-specific tools
+import { createSwarmReaderTool } from "./tools/swarm-reader";
+
+export const createAgent = (sessionId: string) => new ToolLoopAgent({
   model: gateway(process.env.AI_GATEWAY_MODEL || DEFAULT_MODEL),
   instructions: AGENT_INSTRUCTIONS,
   tools: {
@@ -237,6 +240,7 @@ export const agent = new ToolLoopAgent({
     getStockPriceHistory,
     getHackerNewsTop,
     webSearch,
+    swarmReader: createSwarmReaderTool(sessionId), // Inject the swarm reader
   },
   stopWhen: stepCountIs(5),
   temperature: 0.0,
