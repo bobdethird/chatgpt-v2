@@ -24,31 +24,73 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1. Generate a Session ID (or use one from headers/cookies if we had auth)
-  // For this demo, we'll just hash the first message or generate a random one
-  // actually, let's just generate one per request for simplicity, 
-  // BUT to persist context across a conversation, we should ideally get it from the client.
-  // Since the client doesn't send a session ID, we'll generate one and rely on the fact 
-  // that this is a "per-chat" swarm.
-  // A better hack: Use the conversation ID if available, or just a random one.
-  const sessionId = Math.random().toString(36).substring(7);
+  // 1. Force Fixed Session
+  const sessionId = "demo-heng-yang";
 
-  // 2. Extract the latest user query to start the swarm
-  // Find the last message that is from the user
+  // 2. Handle Swarm Triggers
+  // Extract the latest user query to start/update the swarm
+  // DEBUG: Log the raw messages length
+  console.log(`[Route] Received ${uiMessages.length} messages.`);
+
   const lastUserMessage = [...uiMessages].reverse().find(m => m.role === 'user');
-  const query = lastUserMessage && 'content' in lastUserMessage ? (lastUserMessage as any).content : "No query";
+  const query = lastUserMessage && 'content' in lastUserMessage ? (lastUserMessage as any).content : null;
 
-  // 3. Start the Swarm (Fire and Forget)
-  // We only start it if there is a query.
+  console.log(`[Route] Extracted Query: "${query}"`);
+
+  // Fire-and-forget start
   if (query) {
-    console.log(`[Route] Starting Swarm for session ${sessionId} with query: ${query.slice(0, 50)}...`);
-    startSwarm(sessionId, query as string);
+    console.log(`[Route] Triggering Swarm for ${sessionId}: ${query.slice(0, 50)}...`);
+    // Wrap in try-catch to ensure no error here blocks the main thread
+    try {
+      startSwarm(sessionId, query as string);
+      console.log(`[Route] startSwarm called successfully.`);
+    } catch (e) {
+      console.error(`[Route] FAILED to start swarm:`, e);
+    }
+  } else {
+    console.warn(`[Route] No user query found, skipping swarm trigger.`);
   }
 
-  // 4. Create the Agent with the Swarm Reader tool injected
+  // 3. CONTEXT INJECTION
+  // Read the swarm buffer to get the latest status
+  const { getSwarmBuffer } = await import("@/lib/swarm/buffers");
+  const buffer = getSwarmBuffer(sessionId);
+
+  // We inject a SYSTEM message at the end of the history (before the new user message ideally, or just as context)
+  // AI SDK Core doesn't strictly enforce message order for 'system' messages, but usually they go first.
+  // BUT we want this to be "fresh" context. So we can add it as a 'system' message right before the last user message.
+
+  let injectedSystemMessage: any = null;
+  if (buffer) {
+    const recentLogs = buffer.logs.slice(-5).join("\n");
+    const recentArtifacts = buffer.artifacts.slice(-3).map(a =>
+      `TYPE: ${a.type}\nTITLE: ${a.title}\nCONTENT: ${JSON.stringify(a.content).slice(0, 500)}...`
+    ).join("\n---\n");
+
+    const statusMsg = `
+[BACKGROUND SWARM STATUS]
+Status: ${buffer.status}
+Recent Activity:
+${recentLogs}
+
+[FOUND DATA/ARTIFACTS]
+${recentArtifacts}
+
+INSTRUCTION: Uses the above data to answer the user's request. If there are structured artifacts (products, lists), RENDER THEM AS UI COMPONENTS (Tables, Cards).
+`;
+    injectedSystemMessage = { role: "system", content: statusMsg };
+  }
+
+  // 4. Create the Agent
   const agent = createAgent(sessionId);
 
-  const modelMessages = await convertToModelMessages(uiMessages);
+  let modelMessages = await convertToModelMessages(uiMessages);
+
+  // Inject the context
+  if (injectedSystemMessage) {
+    modelMessages = [...modelMessages, injectedSystemMessage];
+  }
+
   const result = await agent.stream({ messages: modelMessages });
 
   const stream = createUIMessageStream({
