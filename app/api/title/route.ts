@@ -9,7 +9,6 @@ RULES:
 - 5–8 words. Be specific, not generic. Include the main verb + object.
 - No filler words (a, the, please, could you, etc.).
 - No quotes, punctuation, or markdown.
-- Single line, title case, max 60 characters, no trailing period.
 - Must be readable out of context.
 
 Output ONLY the title, nothing else.`;
