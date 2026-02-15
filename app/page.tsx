@@ -847,7 +847,7 @@ export default function ChatPage() {
 
         {/* Current Conversation History — vertical dot nav on page content; hover to enter preview */}
         {!isEmpty && (
-          <div className="absolute right-6 top-1/2 -translate-y-1/2 z-50 flex flex-row items-center pointer-events-none">
+          <div className="absolute right-6 top-[25%] -translate-y-1/2 z-50 flex flex-row items-center pointer-events-none">
             <div
               className="group flex flex-row items-center pointer-events-auto"
               onMouseEnter={() => {
@@ -871,7 +871,7 @@ export default function ChatPage() {
               }}
             >
               <div
-                className="mr-2 w-72 max-h-[60vh] overflow-y-auto overflow-x-hidden bg-popover/90 backdrop-blur-md border border-border/50 rounded-xl shadow-xl p-2 opacity-0 scale-95 origin-right transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 hidden group-hover:flex flex-col gap-0.5 order-first"
+                className={`mr-2 w-72 max-h-[60vh] overflow-hidden rounded-xl bg-popover/90 backdrop-blur-md border border-border/50 opacity-0 scale-95 origin-right transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 hidden flex-col order-first ${previewMode ? "group-hover:flex" : ""}`}
                 onWheel={(e) => {
                   if (!previewMode) return;
                   const main = scrollContainerRef.current;
@@ -880,15 +880,26 @@ export default function ChatPage() {
                   main.scrollTop += e.deltaY;
                 }}
               >
-                <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5 sticky top-0 bg-popover/90 backdrop-blur-md">
-                  Current Session{previewMode ? " · scroll" : pinnedIndex !== null ? " · pinned" : ""}
-                </div>
-                {historyItems.map((item) => (
+                <div
+                  className="overflow-y-auto overflow-x-hidden max-h-[60vh] p-2 flex flex-col gap-0.5 rounded-xl"
+                  onWheel={(e) => {
+                    if (!previewMode) return;
+                    const main = scrollContainerRef.current;
+                    if (!main) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    main.scrollTop += e.deltaY;
+                  }}
+                >
+                  <div className="text-xs font-semibold text-muted-foreground px-2 py-1.5 sticky top-0 bg-popover/90 backdrop-blur-md">
+                    Current Session{previewMode ? " · scroll" : pinnedIndex !== null ? " · pinned" : ""}
+                  </div>
+                  {historyItems.map((item) => (
                   <div
                     key={item.index}
                     role="button"
                     tabIndex={0}
-                    className={`text-sm p-2.5 rounded-lg transition-all duration-150 select-none ${viewedIndex === item.index ? "bg-muted ring-1 ring-border/50" : "hover:bg-muted/60"} ${pinnedIndex === item.index ? "ring-1 ring-primary/40" : ""} cursor-pointer`}
+                    className={`text-sm p-2.5 rounded-lg transition-all duration-150 select-none ${viewedIndex === item.index ? "bg-muted" : "hover:bg-muted/60"} cursor-pointer`}
                     onMouseEnter={() => setViewedIndex(item.index)}
                     onFocus={() => setViewedIndex(item.index)}
                     onClick={() => {
@@ -900,10 +911,11 @@ export default function ChatPage() {
                     <div className="font-medium truncate">{item.summary}</div>
                   </div>
                 ))}
+                </div>
               </div>
 
               <div
-                className="flex flex-col items-center gap-1.5 py-3 px-2 bg-background/30 backdrop-blur-sm border border-transparent rounded-l-xl shadow-lg"
+                className="flex flex-col items-center gap-1.5 py-3 px-2 bg-background/30 backdrop-blur-sm rounded-l-xl"
                 aria-label="Session navigation"
               >
                 {historyItems.map((item, i) => (
@@ -921,7 +933,7 @@ export default function ChatPage() {
                         viewedIndex === item.index
                           ? "bg-foreground scale-110"
                           : "bg-muted-foreground/40 hover:bg-muted-foreground/70"
-                      } ${pinnedIndex === item.index ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                      } ${pinnedIndex === item.index && previewMode ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                       title={item.summary}
                       aria-label={`Go to: ${item.summary}`}
                       onMouseEnter={() => setViewedIndex(item.index)}

@@ -43,7 +43,7 @@ RULES:
 - Use PieChart for compositional/proportional data (market share, breakdowns, distributions).
 - Use Tabs when showing multiple categories of data side by side.
 - Use Badge for status indicators.
-- Use Avatar ONLY for small round icons: favicons, user avatars, logos, status icons. Do NOT use Avatar for content images or thumbnails. For weather, use the iconUrl returned by the weather tool. Set fallback to an emoji or 1-2 chars.
+- Use Avatar ONLY for small round icons: favicons, user avatars, logos, status icons. Do NOT use Avatar for content images or thumbnails. For weather, use the iconUrl returned by the weather tool.
 - Use Image for ALL content images: thumbnails, article previews, search result images, hero images, photos, illustrations. Whenever you have an image URL that represents visual content (not a tiny icon), use Image — never Avatar.
 - In Table cells, use { text, icon } objects to show an icon next to text (e.g. weather condition icons in forecast tables). The icon is rendered as a 24×24 inline image.
 - Use Callout for key facts, tips, warnings, or important takeaways.
