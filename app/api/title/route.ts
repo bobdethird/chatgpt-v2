@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 
-const MODEL = process.env.AI_GATEWAY_TITLE_MODEL || "openai/gpt-5-nano";
+const MODEL = process.env.AI_GATEWAY_TITLE_MODEL || "google/gemini-2.5-flash";
 
 const TITLE_SYSTEM = `Generate a clean, short topic title for a user prompt.
 

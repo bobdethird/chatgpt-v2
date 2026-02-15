@@ -10,7 +10,7 @@ import { webSearch } from "./tools/search";
 import { geocodePlaces } from "./tools/geocode";
 import { getBrightdataTools } from "./mcp/brightdata";
 
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4.5";
+const DEFAULT_MODEL = "anthropic/claude-haiku-4.5";
 
 const AGENT_INSTRUCTIONS = `You are a knowledgeable assistant that helps users explore data and learn about any topic. You look up real-time information, build visual dashboards, and create rich educational content.
 

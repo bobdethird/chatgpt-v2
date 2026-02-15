@@ -50,6 +50,7 @@ import {
 import { useLocalChat } from "@/lib/hooks/use-local-chat";
 import { MessageSquare, Plus } from "lucide-react";
 import { PromptPill } from "@/components/prompt-pill";
+import { cn } from "@/lib/utils";
 
 
 // =============================================================================
@@ -1006,37 +1007,57 @@ export default function ChatPage() {
             onMouseEnter={() => setInputHovered(true)}
             onMouseLeave={() => setInputHovered(false)}
           >
-            <Textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              placeholder={
-                isEmpty
-                  ? "e.g., Compare weather in NYC, London, and Tokyo..."
-                  : "Ask a follow-up..."
-              }
-              rows={1}
-              className={[
-                "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
-                inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
-                inputExpanded ? "text-lg" : "text-sm",
-              ].join(" ")}
-              style={{
-                height: inputExpanded ? undefined : "48px",
-                minHeight: inputExpanded ? "48px" : undefined,
-                maxHeight: inputExpanded ? "200px" : undefined,
-                overflow: inputExpanded ? "auto" : "hidden",
-                borderRadius: inputExpanded ? "1.5rem" : "9999px",
-                paddingLeft: inputExpanded ? "1rem" : "2.5rem",
-                paddingRight: inputExpanded ? "3rem" : "1.5rem",
-                paddingTop: "12px",
-                paddingBottom: "12px",
-              }}
-              autoFocus
-            />
+            <div className="relative">
+              {isStreaming && (
+                <div
+                  className="absolute inset-0 flex items-center pointer-events-none text-muted-foreground"
+                  style={{
+                    paddingLeft: inputExpanded ? "1rem" : "2.5rem",
+                    paddingRight: inputExpanded ? "3rem" : "1.5rem",
+                    paddingTop: "12px",
+                    paddingBottom: "12px",
+                  }}
+                >
+                  <span className={cn(inputExpanded ? "text-lg" : "text-sm", "animate-shimmer")}>
+                    Thinking
+                  </span>
+                </div>
+              )}
+              <Textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder={
+                  isStreaming
+                    ? ""
+                    : isEmpty
+                      ? "e.g., Compare weather in NYC, London, and Tokyo..."
+                      : "Ask a follow-up..."
+                }
+                rows={1}
+                disabled={isStreaming}
+                className={[
+                  "resize-none bg-card shadow-sm focus-visible:ring-0 focus-visible:border-input min-h-0 transition-all duration-300 ease-in-out",
+                  inputExpanded ? "cursor-text" : "cursor-default caret-transparent",
+                  inputExpanded ? "text-lg" : "text-sm",
+                ].join(" ")}
+                style={{
+                  height: inputExpanded ? undefined : "48px",
+                  minHeight: inputExpanded ? "48px" : undefined,
+                  maxHeight: inputExpanded ? "200px" : undefined,
+                  overflow: inputExpanded ? "auto" : "hidden",
+                  borderRadius: inputExpanded ? "1.5rem" : "9999px",
+                  paddingLeft: inputExpanded ? "1rem" : "2.5rem",
+                  paddingRight: inputExpanded ? "3rem" : "1.5rem",
+                  paddingTop: "12px",
+                  paddingBottom: "12px",
+                }}
+                autoFocus
+              />
+            </div>
             <div
               className="absolute right-2 bottom-2 transition-all duration-200"
               style={{
