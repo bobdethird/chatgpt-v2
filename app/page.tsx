@@ -369,16 +369,17 @@ const MessageBubble = memo(function MessageBubble({
       {segments.map((seg, i) => {
         // For non-spec segments, determine if this step is active or fading.
         // A step fades when a newer step exists, or when the spec has appeared.
+        // Perma invisible the instant the spec/UI starts generating — no animation delay.
         const isActiveStep =
           seg.kind !== "spec" && stepOf[i] === lastStep && !hasSpec;
         const isFading = seg.kind !== "spec" && !isActiveStep;
+        const fadeClass = isFading ? "hidden" : "";
 
         if (seg.kind === "text") {
           return (
             <div
               key={`text-${i}`}
-              className={`text-sm leading-relaxed text-muted-foreground [&_p+p]:mt-3 ${isFading ? "animate-fade-out-collapse" : ""
-                }`}
+              className={`text-sm leading-relaxed text-muted-foreground [&_p+p]:mt-3 ${fadeClass}`}
             >
               <Streamdown
                 plugins={{ code }}
@@ -400,7 +401,7 @@ const MessageBubble = memo(function MessageBubble({
         return (
           <div
             key={`tools-${i}`}
-            className={`flex flex-col gap-1 ${isFading ? "animate-fade-out-collapse" : ""}`}
+            className={`flex flex-col gap-1 ${fadeClass}`}
           >
             {seg.tools.map((t) => (
               <ToolCallDisplay
@@ -650,38 +651,6 @@ export default function ChatPage() {
   }, []);
 
 
-  // Determine what to display
-  let displayedMessages: AppMessage[] = [];
-
-  if (viewedIndex !== null) {
-    // History Mode: Show the user message at viewedIndex and the following assistant message (if exists)
-    const userMsg = messages[viewedIndex];
-    const assistantMsg = messages[viewedIndex + 1];
-    if (userMsg) {
-      displayedMessages.push(userMsg);
-      if (assistantMsg && assistantMsg.role === "assistant") {
-        displayedMessages.push(assistantMsg);
-      }
-    }
-  } else {
-    // Live Mode (Focus Mode):
-    // Show the *latest* exchange. 
-    // Usually the last 2 messages (User + Assistant).
-    // If only User message exists (waiting for AI), show last 1.
-    // However, we want to ensure we're showing a complete turn if possible.
-
-    if (messages.length > 0) {
-      // Find the last user message
-      const lastUserIndex = messages.findLastIndex(m => m.role === 'user');
-      if (lastUserIndex !== -1) {
-        displayedMessages = messages.slice(lastUserIndex);
-      } else {
-        // Fallback (e.g. system message only?)
-        displayedMessages = messages.slice(-2);
-      }
-    }
-  }
-
   // Auto-switch back to live mode when a new message is added (while not viewing history)
   useEffect(() => {
     if (status === 'submitted' || status === 'streaming') {
@@ -847,7 +816,7 @@ export default function ChatPage() {
 
         {/* Current Conversation History — vertical dot nav on page content; hover to enter preview */}
         {!isEmpty && (
-          <div className="absolute right-6 top-[25%] -translate-y-1/2 z-50 flex flex-row items-center pointer-events-none">
+          <div className="absolute right-5 top-[25%] -translate-y-1/2 z-50 flex flex-row items-center pointer-events-none">
             <div
               className="group flex flex-row items-center pointer-events-auto"
               onMouseEnter={() => {
@@ -918,7 +887,11 @@ export default function ChatPage() {
                 className="flex flex-col items-center gap-1.5 py-3 px-2 bg-background/30 backdrop-blur-sm rounded-l-xl"
                 aria-label="Session navigation"
               >
-                {historyItems.map((item, i) => (
+                {historyItems.map((item, i) => {
+                  const lastIdx = exchangeIndices[exchangeIndices.length - 1];
+                  const currentIndex = viewedIndex ?? lastIdx ?? -1;
+                  const isCurrent = item.index === currentIndex;
+                  return (
                   <Fragment key={item.index}>
                     {i > 0 && (
                       <div
@@ -930,7 +903,7 @@ export default function ChatPage() {
                       key={item.index}
                       type="button"
                       className={`w-2.5 h-2.5 rounded-full transition-all duration-150 shrink-0 ${
-                        viewedIndex === item.index
+                        isCurrent
                           ? "bg-foreground scale-110"
                           : "bg-muted-foreground/40 hover:bg-muted-foreground/70"
                       } ${pinnedIndex === item.index && previewMode ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
@@ -945,7 +918,8 @@ export default function ChatPage() {
                       }}
                     />
                   </Fragment>
-                ))}
+                );
+                })}
               </div>
             </div>
           </div>
@@ -1024,11 +998,8 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
           ) : (
-            /* Single-exchange view (latest or pinned) */
-            <div
-              key={viewedIndex ?? "live"}
-              className="w-full px-16 pt-2 pb-24 space-y-6 animate-in fade-in-0 duration-200"
-            >
+            /* Single-exchange view (latest or pinned) — render all exchanges, toggle visibility to avoid remount/animation */
+            <div className="w-full px-16 pt-2 pb-24 space-y-6">
               {viewedIndex !== null && (
                 <div className="flex justify-center mb-4">
                   <Button
@@ -1046,29 +1017,48 @@ export default function ChatPage() {
               )}
 
               <div id={viewedIndex !== null ? "pinned-exchange-start" : undefined} className="space-y-6">
-              {displayedMessages.map((message, index) => {
-                if (message.role === "user") {
-                  const isLast = index === displayedMessages.length - 1;
-                  if (!isLast) return null;
-                  const rawPrompt = extractPromptFromMessage(message);
-                  return (
-                    <OutputBlock key={message.id} rawPrompt={rawPrompt} aiTitle={aiTitles[rawPrompt.trim()]}>
-                      <div className="text-sm text-muted-foreground animate-shimmer">Thinking...</div>
-                    </OutputBlock>
-                  );
-                }
-                const userMsg = displayedMessages[index - 1];
-                const rawPrompt = userMsg && userMsg.role === "user"
-                  ? extractPromptFromMessage(userMsg)
-                  : "";
+              {exchangeIndices.map((userIdx) => {
+                const userMsg = messages[userIdx];
+                const assistantMsg = messages[userIdx + 1];
+                const lastExchangeIdx = exchangeIndices[exchangeIndices.length - 1];
+                const isActive =
+                  viewedIndex === userIdx ||
+                  (viewedIndex === null && userIdx === lastExchangeIdx);
+                if (!userMsg) return null;
+
+                const rawPrompt = extractPromptFromMessage(userMsg);
                 return (
-                  <OutputBlock key={message.id} rawPrompt={rawPrompt} aiTitle={aiTitles[rawPrompt.trim()]}>
-                    <MessageBubble
-                      message={message}
-                      isLast={index === displayedMessages.length - 1}
-                      isStreaming={isStreaming && viewedIndex === null && index === displayedMessages.length - 1}
-                    />
-                  </OutputBlock>
+                  <div
+                    key={userIdx}
+                    className={isActive ? "space-y-6" : "hidden"}
+                    aria-hidden={!isActive}
+                  >
+                    {assistantMsg && assistantMsg.role === "assistant" ? (
+                      <OutputBlock
+                        rawPrompt={rawPrompt}
+                        aiTitle={aiTitles[rawPrompt.trim()]}
+                      >
+                        <MessageBubble
+                          message={assistantMsg}
+                          isLast={userIdx === lastExchangeIdx && !isStreaming}
+                          isStreaming={
+                            isStreaming &&
+                            viewedIndex === null &&
+                            userIdx === lastExchangeIdx
+                          }
+                        />
+                      </OutputBlock>
+                    ) : (
+                      <OutputBlock
+                        rawPrompt={rawPrompt}
+                        aiTitle={aiTitles[rawPrompt.trim()]}
+                      >
+                        <div className="text-sm text-muted-foreground animate-shimmer">
+                          Thinking...
+                        </div>
+                      </OutputBlock>
+                    )}
+                  </div>
                 );
               })}
               </div>
