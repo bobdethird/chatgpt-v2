@@ -32,8 +32,33 @@ export async function POST(req: Request) {
   // DEBUG: Log the raw messages length
   console.log(`[Route] Received ${uiMessages.length} messages.`);
 
+  // Find the last message that is strictly from the user
   const lastUserMessage = [...uiMessages].reverse().find(m => m.role === 'user');
-  const query = lastUserMessage && 'content' in lastUserMessage ? (lastUserMessage as any).content : null;
+
+  // LOG THE MESSAGE OBJECT TO SEE STRUCTURE
+  if (lastUserMessage) {
+    console.log(`[Route] Last User Message Object:`, JSON.stringify(lastUserMessage).slice(0, 200));
+  } else {
+    console.log(`[Route] No user message found in history.`);
+  }
+
+  // Handle both possible structures (direct content property or nested parts)
+  let query: string | null = null;
+
+  if (lastUserMessage) {
+    if (typeof lastUserMessage.content === 'string') {
+      query = lastUserMessage.content;
+    } else if (Array.isArray(lastUserMessage.content)) {
+      // Vercel AI SDK Core Message format
+      query = lastUserMessage.content.map(c => c.type === 'text' ? c.text : '').join('');
+    } else if ('parts' in lastUserMessage && Array.isArray((lastUserMessage as any).parts)) {
+      // Vercel AI SDK UI Message format (sometimes)
+      query = (lastUserMessage as any).parts.map((p: any) => p.text || '').join('');
+    } else {
+      // Fallback
+      query = JSON.stringify(lastUserMessage.content || lastUserMessage);
+    }
+  }
 
   console.log(`[Route] Extracted Query: "${query}"`);
 
