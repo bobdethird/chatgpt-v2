@@ -1,14 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback, type ReactNode } from "react";
+import { useState, Suspense, lazy, type ReactNode } from "react";
 import { useBoundProp, defineRegistry } from "@json-render/react";
-import ReactMapGL, {
-  Marker as MapboxMarker,
-  Popup as MapboxPopup,
-  NavigationControl,
-} from "react-map-gl/mapbox";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import dynamic from "next/dynamic";
+
+// ---- Charts (recharts) — loaded eagerly since they're used very frequently ----
 import {
   Bar,
   BarChart as RechartsBarChart,
@@ -28,6 +24,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
+// ---- Shadcn UI (lightweight, always needed) ----
 import {
   Card,
   CardHeader,
@@ -82,151 +79,32 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  X,
-  MapPin,
-  StarHalf,
 } from "lucide-react";
 
-// 3D imports
-import { Canvas, useFrame } from "@react-three/fiber";
-import {
-  OrbitControls,
-  Stars as DreiStars,
-  Text as DreiText,
-} from "@react-three/drei";
-import type * as THREE from "three";
+// ---- Map (mapbox-gl ~300KB) — LAZY loaded, only when Map component renders ----
+const LazyMapInner = dynamic(() => import("./lazy/map-inner"), {
+  loading: () => <Skeleton className="w-full h-[400px] rounded-xl" />,
+  ssr: false,
+});
+
+// ---- 3D (three.js + R3F + drei ~500KB) — LAZY loaded via React.lazy ----
+const lazy3D = () => import("./lazy/scene3d-inner");
+const LazyScene3D = lazy(() => lazy3D().then(m => ({ default: m.Scene3DInner })));
+const LazyGroup3D = lazy(() => lazy3D().then(m => ({ default: m.Group3DInner })));
+const LazyBox = lazy(() => lazy3D().then(m => ({ default: m.BoxInner })));
+const LazySphere = lazy(() => lazy3D().then(m => ({ default: m.SphereInner })));
+const LazyCylinder = lazy(() => lazy3D().then(m => ({ default: m.CylinderInner })));
+const LazyCone = lazy(() => lazy3D().then(m => ({ default: m.ConeInner })));
+const LazyTorus = lazy(() => lazy3D().then(m => ({ default: m.TorusInner })));
+const LazyPlane = lazy(() => lazy3D().then(m => ({ default: m.PlaneInner })));
+const LazyRing = lazy(() => lazy3D().then(m => ({ default: m.RingInner })));
+const LazyAmbientLight = lazy(() => lazy3D().then(m => ({ default: m.AmbientLightInner })));
+const LazyPointLight = lazy(() => lazy3D().then(m => ({ default: m.PointLightInner })));
+const LazyDirectionalLight = lazy(() => lazy3D().then(m => ({ default: m.DirectionalLightInner })));
+const LazyStars = lazy(() => lazy3D().then(m => ({ default: m.StarsInner })));
+const LazyLabel3D = lazy(() => lazy3D().then(m => ({ default: m.Label3DInner })));
 
 import { explorerCatalog } from "./catalog";
-
-// =============================================================================
-// 3D Helper Types & Components
-// =============================================================================
-
-type Vec3Tuple = [number, number, number];
-
-interface Animation3D {
-  rotate?: number[] | null;
-}
-
-interface Mesh3DProps {
-  position?: number[] | null;
-  rotation?: number[] | null;
-  scale?: number[] | null;
-  color?: string | null;
-  args?: number[] | null;
-  metalness?: number | null;
-  roughness?: number | null;
-  emissive?: string | null;
-  emissiveIntensity?: number | null;
-  wireframe?: boolean | null;
-  opacity?: number | null;
-  animation?: Animation3D | null;
-}
-
-function toVec3(v: number[] | null | undefined): Vec3Tuple | undefined {
-  if (!v || v.length < 3) return undefined;
-  return v.slice(0, 3) as Vec3Tuple;
-}
-
-function toGeoArgs<T extends unknown[]>(
-  v: number[] | null | undefined,
-  fallback: T,
-): T {
-  if (!v || v.length === 0) return fallback;
-  return v as unknown as T;
-}
-
-/** Shared hook for continuous rotation animation */
-function useRotationAnimation(
-  ref: React.RefObject<THREE.Object3D | null>,
-  animation?: Animation3D | null,
-) {
-  useFrame(() => {
-    if (!ref.current || !animation?.rotate) return;
-    const [rx, ry, rz] = animation.rotate;
-    ref.current.rotation.x += rx ?? 0;
-    ref.current.rotation.y += ry ?? 0;
-    ref.current.rotation.z += rz ?? 0;
-  });
-}
-
-/** Standard material props shared by all mesh primitives */
-function StandardMaterial({
-  color,
-  metalness,
-  roughness,
-  emissive,
-  emissiveIntensity,
-  wireframe,
-  opacity,
-}: Mesh3DProps) {
-  return (
-    <meshStandardMaterial
-      color={color ?? "#cccccc"}
-      metalness={metalness ?? 0.1}
-      roughness={roughness ?? 0.8}
-      emissive={emissive ?? undefined}
-      emissiveIntensity={emissiveIntensity ?? 1}
-      wireframe={wireframe ?? false}
-      transparent={opacity != null && opacity < 1}
-      opacity={opacity ?? 1}
-    />
-  );
-}
-
-/** Generic mesh wrapper for all geometry primitives */
-function MeshPrimitive({
-  meshProps,
-  children,
-  onClick,
-}: {
-  meshProps: Mesh3DProps;
-  children: ReactNode;
-  onClick?: () => void;
-}) {
-  const ref = useRef<THREE.Mesh>(null);
-  useRotationAnimation(ref, meshProps.animation);
-  return (
-    <mesh
-      ref={ref}
-      position={toVec3(meshProps.position)}
-      rotation={toVec3(meshProps.rotation)}
-      scale={toVec3(meshProps.scale)}
-      onClick={onClick}
-    >
-      {children}
-      <StandardMaterial {...meshProps} />
-    </mesh>
-  );
-}
-
-/** Animated group wrapper */
-function AnimatedGroup({
-  position,
-  rotation,
-  scale,
-  animation,
-  children,
-}: {
-  position?: number[] | null;
-  rotation?: number[] | null;
-  scale?: number[] | null;
-  animation?: Animation3D | null;
-  children?: ReactNode;
-}) {
-  const ref = useRef<THREE.Group>(null);
-  useRotationAnimation(ref, animation);
-  return (
-    <group
-      ref={ref}
-      position={toVec3(position)}
-      rotation={toVec3(rotation)}
-      scale={toVec3(scale)}
-    >
-      {children}
-    </group>
-  );
-}
 
 // =============================================================================
 // Registry
@@ -1141,433 +1019,121 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
     ),
 
     // =========================================================================
-    // Map Components (Google Maps-style with overlay panel)
+    // Map Component — lazy-loaded (mapbox-gl ~300KB only loaded when needed)
     // =========================================================================
 
-    Map: ({ props }) => {
-      const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-      const mapRef = useRef<mapboxgl.Map | null>(null);
-
-      const mapStyle =
-        MAPBOX_STYLES[props.mapStyle ?? "streets"] ?? MAPBOX_STYLES.streets;
-
-      const markers = (
-        Array.isArray(props.markers) ? props.markers : []
-      ) as Array<Record<string, unknown>>;
-
-      const handleSelectMarker = useCallback(
-        (idx: number) => {
-          setSelectedIdx((prev) => (prev === idx ? null : idx));
-          const m = markers[idx];
-          if (!m) return;
-          const lat = (m.latitude ?? m.lat) as number;
-          const lng = (m.longitude ?? m.lng ?? m.lon) as number;
-          if (mapRef.current) {
-            mapRef.current.flyTo({
-              center: [lng, lat],
-              zoom: Math.max(mapRef.current.getZoom(), 14),
-              duration: 800,
-            });
-          }
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [markers.length],
-      );
-
-      const selectedMarker =
-        selectedIdx != null ? markers[selectedIdx] : null;
-
-      return (
-        <div
-          className="relative w-full"
-          style={{
-            height: props.height ?? "550px",
-            borderRadius: 12,
-            overflow: "hidden",
-          }}
-        >
-          {/* ---- Full-bleed Map Background ---- */}
-          <ReactMapGL
-            initialViewState={{
-              latitude: props.latitude,
-              longitude: props.longitude,
-              zoom: props.zoom ?? 12,
-            }}
-            mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_API_KEY}
-            mapStyle={mapStyle}
-            style={{ width: "100%", height: "100%" }}
-            ref={(r) => {
-              if (r) mapRef.current = r.getMap();
-            }}
-            onClick={() => setSelectedIdx(null)}
-          >
-            <NavigationControl position="top-right" />
-
-            {markers.map((marker, i) => {
-              const m = marker as Record<string, unknown>;
-              const lat = (m.latitude ?? m.lat) as number;
-              const lng = (m.longitude ?? m.lng ?? m.lon) as number;
-              const color = (m.color as string) ?? "#EF4444";
-              const isSelected = selectedIdx === i;
-
-              return (
-                <MapboxMarker
-                  key={i}
-                  latitude={lat}
-                  longitude={lng}
-                  anchor="bottom"
-                  onClick={(e: { originalEvent: MouseEvent }) => {
-                    e.originalEvent.stopPropagation();
-                    handleSelectMarker(i);
-                  }}
-                >
-                  <div
-                    className="transition-transform duration-200"
-                    style={{
-                      transform: isSelected ? "scale(1.3)" : "scale(1)",
-                      filter: isSelected
-                        ? "drop-shadow(0 0 6px rgba(0,0,0,0.4))"
-                        : "none",
-                    }}
-                  >
-                    <svg
-                      width="28"
-                      height="40"
-                      viewBox="0 0 24 36"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M12 0C5.372 0 0 5.372 0 12c0 9 12 24 12 24s12-15 12-24c0-6.628-5.372-12-12-12z"
-                        fill={isSelected ? "#1d4ed8" : color}
-                      />
-                      <circle cx="12" cy="12" r="5" fill="white" />
-                    </svg>
-                  </div>
-                </MapboxMarker>
-              );
-            })}
-          </ReactMapGL>
-
-          {/* ---- Left Overlay Panel ---- */}
-          {markers.length > 0 && (
-            <div
-              className="absolute top-3 left-3 bottom-3 flex flex-col z-10"
-              style={{ width: 340, maxWidth: "45%" }}
-            >
-              <div className="flex flex-col h-full bg-background/95 backdrop-blur-md rounded-xl shadow-xl border border-border/50 overflow-hidden">
-                {/* Panel header */}
-                <div className="px-4 py-3 border-b border-border/50 shrink-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {markers.length} location{markers.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-
-                {/* Scrollable list */}
-                <div className="flex-1 overflow-y-auto overscroll-contain">
-                  {markers.map((marker, i) => {
-                    const m = marker as Record<string, unknown>;
-                    const label =
-                      (m.label ?? m.name ?? m.title) as string | null;
-                    const description = m.description as string | null;
-                    const address = m.address as string | null;
-                    const rating = m.rating as number | null;
-                    const image = m.image as string | null;
-                    const category = m.category as string | null;
-                    const isSelected = selectedIdx === i;
-
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => handleSelectMarker(i)}
-                        className={`w-full text-left px-4 py-3 border-b border-border/30 transition-colors cursor-pointer hover:bg-accent/50 ${
-                          isSelected ? "bg-accent" : ""
-                        }`}
-                      >
-                        <div className="flex gap-3">
-                          {/* Thumbnail */}
-                          {image && (
-                            <div className="shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-muted">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={image}
-                                alt={label ?? ""}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            {/* Name */}
-                            <p className="text-sm font-semibold text-foreground truncate">
-                              {label ?? `Location ${i + 1}`}
-                            </p>
-
-                            {/* Rating + Category row */}
-                            {(rating != null || category) && (
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {rating != null && (
-                                  <div className="flex items-center gap-0.5">
-                                    <span className="text-xs font-medium text-foreground">
-                                      {rating.toFixed(1)}
-                                    </span>
-                                    <div className="flex">
-                                      {renderStars(rating)}
-                                    </div>
-                                  </div>
-                                )}
-                                {category && (
-                                  <span className="text-xs text-muted-foreground">
-                                    · {category}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Address */}
-                            {address && (
-                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                {address}
-                              </p>
-                            )}
-
-                            {/* Description (only when selected) */}
-                            {isSelected && description && (
-                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-3">
-                                {description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Expanded detail card for selected marker */}
-                {selectedMarker && (
-                  <div className="shrink-0 border-t border-border/50 bg-background p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-foreground truncate">
-                          {(selectedMarker.label ??
-                            selectedMarker.name ??
-                            selectedMarker.title) as string}
-                        </h3>
-                        {(selectedMarker.category as string) && (
-                          <Badge
-                            variant="secondary"
-                            className="mt-1 text-[10px] px-1.5 py-0"
-                          >
-                            {selectedMarker.category as string}
-                          </Badge>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedIdx(null)}
-                        className="shrink-0 p-1 rounded-md hover:bg-accent transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    </div>
-
-                    {(selectedMarker.rating as number) != null && (
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <span className="text-sm font-semibold">
-                          {(selectedMarker.rating as number).toFixed(1)}
-                        </span>
-                        <div className="flex">
-                          {renderStars(selectedMarker.rating as number)}
-                        </div>
-                      </div>
-                    )}
-
-                    {(selectedMarker.address as string) && (
-                      <div className="flex items-start gap-1.5 mt-2">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground">
-                          {selectedMarker.address as string}
-                        </p>
-                      </div>
-                    )}
-
-                    {(selectedMarker.description as string) && (
-                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                        {selectedMarker.description as string}
-                      </p>
-                    )}
-
-                    {(selectedMarker.image as string) && (
-                      <div className="mt-3 rounded-lg overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={selectedMarker.image as string}
-                          alt={
-                            (selectedMarker.label as string) ?? "Location"
-                          }
-                          className="w-full h-32 object-cover"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    },
+    Map: ({ props }) => (
+      <LazyMapInner
+        latitude={props.latitude}
+        longitude={props.longitude}
+        zoom={props.zoom}
+        height={props.height}
+        mapStyle={props.mapStyle}
+        markers={props.markers as any}
+      />
+    ),
 
     // =========================================================================
-    // 3D Scene Components
+    // 3D Scene Components — lazy-loaded (three.js + R3F ~500KB only when needed)
     // =========================================================================
 
     Scene3D: ({ props, children }) => (
-      <div
-        style={{
-          height: props.height ?? "400px",
-          width: "100%",
-          background: props.background ?? "#111111",
-          borderRadius: 8,
-          overflow: "hidden",
-        }}
-      >
-        <Canvas
-          camera={{
-            position: toVec3(props.cameraPosition) ?? [0, 10, 30],
-            fov: props.cameraFov ?? 50,
-          }}
+      <Suspense fallback={<Skeleton className="w-full h-[400px] rounded-lg" />}>
+        <LazyScene3D
+          height={props.height}
+          background={props.background}
+          cameraPosition={props.cameraPosition}
+          cameraFov={props.cameraFov}
+          autoRotate={props.autoRotate}
         >
-          <OrbitControls
-            autoRotate={props.autoRotate ?? false}
-            enablePan
-            enableZoom
-          />
           {children}
-        </Canvas>
-      </div>
+        </LazyScene3D>
+      </Suspense>
     ),
 
     Group3D: ({ props, children }) => (
-      <AnimatedGroup
-        position={props.position}
-        rotation={props.rotation}
-        scale={props.scale}
-        animation={props.animation}
-      >
-        {children}
-      </AnimatedGroup>
+      <Suspense fallback={null}>
+        <LazyGroup3D
+          position={props.position}
+          rotation={props.rotation}
+          scale={props.scale}
+          animation={props.animation}
+        >
+          {children}
+        </LazyGroup3D>
+      </Suspense>
     ),
 
     Box: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <boxGeometry
-          args={toGeoArgs<[number, number, number]>(props.args, [1, 1, 1])}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazyBox props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     Sphere: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <sphereGeometry
-          args={toGeoArgs<[number, number, number]>(props.args, [1, 32, 32])}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazySphere props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     Cylinder: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <cylinderGeometry
-          args={toGeoArgs<[number, number, number, number]>(
-            props.args,
-            [1, 1, 2, 32],
-          )}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazyCylinder props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     Cone: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <coneGeometry
-          args={toGeoArgs<[number, number, number]>(props.args, [1, 2, 32])}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazyCone props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     Torus: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <torusGeometry
-          args={toGeoArgs<[number, number, number, number]>(
-            props.args,
-            [1, 0.4, 16, 100],
-          )}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazyTorus props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     Plane: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <planeGeometry
-          args={toGeoArgs<[number, number]>(props.args, [10, 10])}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazyPlane props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     Ring: ({ props, emit }) => (
-      <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
-        <ringGeometry
-          args={toGeoArgs<[number, number, number]>(props.args, [0.5, 1, 64])}
-        />
-      </MeshPrimitive>
+      <Suspense fallback={null}>
+        <LazyRing props={props as any} onClick={() => emit("press")} />
+      </Suspense>
     ),
 
     AmbientLight: ({ props }) => (
-      <ambientLight
-        color={props.color ?? undefined}
-        intensity={props.intensity ?? 0.5}
-      />
+      <Suspense fallback={null}>
+        <LazyAmbientLight color={props.color} intensity={props.intensity} />
+      </Suspense>
     ),
 
     PointLight: ({ props }) => (
-      <pointLight
-        position={toVec3(props.position)}
-        color={props.color ?? undefined}
-        intensity={props.intensity ?? 1}
-        distance={props.distance ?? 0}
-      />
+      <Suspense fallback={null}>
+        <LazyPointLight position={props.position} color={props.color} intensity={props.intensity} distance={props.distance} />
+      </Suspense>
     ),
 
     DirectionalLight: ({ props }) => (
-      <directionalLight
-        position={toVec3(props.position)}
-        color={props.color ?? undefined}
-        intensity={props.intensity ?? 1}
-      />
+      <Suspense fallback={null}>
+        <LazyDirectionalLight position={props.position} color={props.color} intensity={props.intensity} />
+      </Suspense>
     ),
 
     Stars: ({ props }) => (
-      <DreiStars
-        radius={props.radius ?? 100}
-        depth={props.depth ?? 50}
-        count={props.count ?? 5000}
-        factor={props.factor ?? 4}
-        fade={props.fade ?? true}
-        speed={props.speed ?? 1}
-      />
+      <Suspense fallback={null}>
+        <LazyStars radius={props.radius} depth={props.depth} count={props.count} factor={props.factor} fade={props.fade} speed={props.speed} />
+      </Suspense>
     ),
 
     Label3D: ({ props }) => (
-      <DreiText
-        position={toVec3(props.position)}
-        rotation={toVec3(props.rotation)}
-        color={props.color ?? "#ffffff"}
-        fontSize={props.fontSize ?? 1}
-        anchorX={props.anchorX ?? "center"}
-        anchorY={props.anchorY ?? "middle"}
-      >
-        {props.text}
-      </DreiText>
+      <Suspense fallback={null}>
+        <LazyLabel3D position={props.position} rotation={props.rotation} color={props.color} fontSize={props.fontSize} anchorX={props.anchorX} anchorY={props.anchorY} text={props.text} />
+      </Suspense>
     ),
 
     // =========================================================================
@@ -1704,52 +1270,7 @@ function formatCellValue(value: unknown): string {
   }
 }
 
-// =============================================================================
-// Mapbox Helpers
-// =============================================================================
-
-/** Render star icons for a rating (0-5). */
-function renderStars(rating: number): ReactNode[] {
-  const stars: ReactNode[] = [];
-  const fullStars = Math.floor(rating);
-  const hasHalf = rating - fullStars >= 0.25 && rating - fullStars < 0.75;
-  const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
-
-  for (let i = 0; i < fullStars; i++) {
-    stars.push(
-      <Star
-        key={`full-${i}`}
-        className="h-3 w-3 text-yellow-500 fill-yellow-500"
-      />,
-    );
-  }
-  if (hasHalf) {
-    stars.push(
-      <StarHalf
-        key="half"
-        className="h-3 w-3 text-yellow-500 fill-yellow-500"
-      />,
-    );
-  }
-  for (let i = 0; i < emptyStars; i++) {
-    stars.push(
-      <Star
-        key={`empty-${i}`}
-        className="h-3 w-3 text-muted-foreground/30"
-      />,
-    );
-  }
-  return stars;
-}
-
-const MAPBOX_STYLES: Record<string, string> = {
-  streets: "mapbox://styles/mapbox/streets-v12",
-  outdoors: "mapbox://styles/mapbox/outdoors-v12",
-  light: "mapbox://styles/mapbox/light-v11",
-  dark: "mapbox://styles/mapbox/dark-v11",
-  satellite: "mapbox://styles/mapbox/satellite-v9",
-  "satellite-streets": "mapbox://styles/mapbox/satellite-streets-v12",
-};
+// (Mapbox helpers moved to ./lazy/map-inner.tsx for code-splitting)
 
 // =============================================================================
 // Chart Helpers

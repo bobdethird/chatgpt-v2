@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, memo } from "react";
 import {
   Renderer,
   type ComponentRenderer,
@@ -22,6 +22,8 @@ import { registry, Fallback } from "./registry";
  * as React keys, so duplicates trigger React warnings.
  */
 function deduplicateSpec(spec: Spec): Spec {
+  if (!spec.elements) return spec;
+
   const elements: Record<string, any> = {};
   let elementsDirty = false;
 
@@ -419,7 +421,6 @@ function repairSpec(spec: Spec): Spec {
 
   // Find missing refs (referenced as child but not in elements)
   const missingRefs = [...allChildRefs].filter((ref) => !elements[ref]);
-  if (missingRefs.length === 0) return spec;
 
   // Sort so more specific patterns (-tabs suffix) are processed first,
   // claiming their matching orphans before generic container strategies run.
@@ -575,6 +576,47 @@ function repairSpec(spec: Spec): Spec {
     }
   }
 
+  // ----- Final Strategy: Attach remaining top-level orphans to root -----
+  // After all other repairs, some elements may still be defined but not
+  // reachable from the root tree. Find the top-level orphan elements
+  // (those not children of other orphans) and append them to the root's
+  // children so they become visible.
+  {
+    const allChildRefsAfter = new Set<string>();
+    for (const el of Object.values(elements)) {
+      for (const c of el.children ?? []) allChildRefsAfter.add(c);
+    }
+    const referencedKeysAfter = new Set<string>([
+      spec.root,
+      ...allChildRefsAfter,
+    ]);
+    const remainingOrphans = Object.keys(elements).filter(
+      (k) => !referencedKeysAfter.has(k),
+    );
+
+    if (remainingOrphans.length > 0) {
+      // Among orphans, find top-level ones (not children of other orphans)
+      const orphanChildRefs = new Set<string>();
+      for (const k of remainingOrphans) {
+        for (const c of elements[k]?.children ?? []) orphanChildRefs.add(c);
+      }
+      const topLevelOrphans = remainingOrphans.filter(
+        (k) => !orphanChildRefs.has(k),
+      );
+
+      if (topLevelOrphans.length > 0) {
+        const rootEl = elements[spec.root];
+        if (rootEl && Array.isArray(rootEl.children)) {
+          elements[spec.root] = {
+            ...rootEl,
+            children: [...rootEl.children, ...topLevelOrphans],
+          };
+          changed = true;
+        }
+      }
+    }
+  }
+
   if (!changed) return spec;
   return { ...spec, elements } as Spec;
 }
@@ -592,17 +634,67 @@ const fallback: ComponentRenderer = ({ element }) => (
   <Fallback type={element.type} />
 );
 
-export function ExplorerRenderer({
+/**
+ * Sanitize a spec so every element value is a valid object with at least
+ * `type` (string) and `props` (object). During streaming, partial patches
+ * can leave element entries as null / undefined / incomplete. The
+ * @json-render/react Renderer calls Object.entries on element props
+ * internally, so we must clean these up before handing the spec over.
+ */
+function sanitizeSpec(spec: Spec): Spec | null {
+  if (!spec?.root || !spec.elements) return null;
+
+  // Fast path: if the root element itself isn't ready, bail
+  const rootEl = spec.elements[spec.root];
+  if (!rootEl || typeof rootEl !== "object" || !("type" in rootEl)) return null;
+
+  let dirty = false;
+  const elements: Record<string, any> = {};
+
+  for (const [key, el] of Object.entries(spec.elements)) {
+    if (!el || typeof el !== "object" || !("type" in el)) {
+      // Drop invalid/partial element entries
+      dirty = true;
+      continue;
+    }
+    // Ensure props is always an object (never null/undefined)
+    if (!el.props || typeof el.props !== "object") {
+      elements[key] = { ...el, props: {} };
+      dirty = true;
+    } else {
+      elements[key] = el;
+    }
+  }
+
+  // Also strip any children references that point to elements we just dropped
+  const validKeys = new Set(Object.keys(elements));
+  for (const [key, el] of Object.entries(elements)) {
+    if (Array.isArray(el.children)) {
+      const filtered = el.children.filter((c: string) => validKeys.has(c));
+      if (filtered.length !== el.children.length) {
+        elements[key] = { ...el, children: filtered };
+        dirty = true;
+      }
+    }
+  }
+
+  if (!dirty) return spec;
+  return { ...spec, elements };
+}
+
+export const ExplorerRenderer = memo(function ExplorerRenderer({
   spec,
   loading,
 }: ExplorerRendererProps): ReactNode {
-  // Repair then deduplicate spec (memoized by spec reference)
-  const safeSpec = useMemo(
-    () => (spec ? deduplicateSpec(repairSpec(spec)) : null),
-    [spec],
-  );
+  // Sanitize → repair → deduplicate (memoized by spec reference)
+  const safeSpec = useMemo(() => {
+    if (!spec) return null;
+    const sanitized = sanitizeSpec(spec);
+    if (!sanitized) return null;
+    return deduplicateSpec(repairSpec(sanitized));
+  }, [spec]);
 
-  if (!safeSpec) return null;
+  if (!safeSpec || !safeSpec.root || !safeSpec.elements) return null;
 
   return (
     <StateProvider initialState={safeSpec.state ?? {}}>
@@ -618,4 +710,4 @@ export function ExplorerRenderer({
       </VisibilityProvider>
     </StateProvider>
   );
-}
+});

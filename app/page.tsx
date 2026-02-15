@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, memo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
@@ -63,7 +63,48 @@ type AppMessage = UIMessage<unknown, AppDataParts>;
 // Transport
 // =============================================================================
 
-const transport = new DefaultChatTransport({ api: "/api/chat" });
+/**
+ * Strip heavy spec-data parts and tool output from messages before sending to
+ * the API. The LLM generated those specs — it doesn't need to see them again —
+ * and tool outputs are already summarized in the assistant text. This alone
+ * can cut payload size by 10-50x on long conversations.
+ *
+ * We also cap history to the last MAX_HISTORY_MESSAGES messages to prevent
+ * unbounded growth.
+ */
+const MAX_HISTORY_MESSAGES = 20;
+
+function stripHeavyParts(messages: UIMessage[]): UIMessage[] {
+  // Take only the last N messages to cap context size
+  const capped =
+    messages.length > MAX_HISTORY_MESSAGES
+      ? messages.slice(-MAX_HISTORY_MESSAGES)
+      : messages;
+
+  return capped.map((m) => {
+    if (m.role !== "assistant" || !Array.isArray(m.parts)) return m;
+
+    // Filter out spec data parts and strip tool result output
+    const lightParts = m.parts
+      .filter((p: any) => p.type !== SPEC_DATA_PART_TYPE)
+      .map((p: any) => {
+        // Strip large tool output data — keep the tool call metadata
+        if (p.type?.startsWith("tool-") && p.output != null) {
+          return { ...p, output: "[stripped]" };
+        }
+        return p;
+      });
+
+    return { ...m, parts: lightParts };
+  });
+}
+
+const transport = new DefaultChatTransport({
+  api: "/api/chat",
+  prepareSendMessagesRequest: ({ id, messages }) => ({
+    body: { id, messages: stripHeavyParts(messages as UIMessage[]) },
+  }),
+});
 
 // =============================================================================
 // Helpers
@@ -117,7 +158,7 @@ const TOOL_LABELS: Record<string, [string, string]> = {
   webSearch: ["Searching the web", "Searched the web"],
 };
 
-function SpecWithDebug({
+const SpecWithDebug = memo(function SpecWithDebug({
   spec,
   loading,
 }: {
@@ -143,9 +184,9 @@ function SpecWithDebug({
       )}
     </div>
   );
-}
+});
 
-function ToolCallDisplay({
+const ToolCallDisplay = memo(function ToolCallDisplay({
   toolName,
   state,
   result,
@@ -192,7 +233,7 @@ function ToolCallDisplay({
       )}
     </div>
   );
-}
+});
 
 // =============================================================================
 // Output Block (assistant content + prompt pill header)
@@ -225,7 +266,7 @@ function OutputBlock({
 // Message Bubble
 // =============================================================================
 
-function MessageBubble({
+const MessageBubble = memo(function MessageBubble({
   message,
   isLast,
   isStreaming,
@@ -388,7 +429,7 @@ function MessageBubble({
       )}
     </div>
   );
-}
+});
 
 // =============================================================================
 // Page
@@ -425,24 +466,38 @@ export default function ChatPage() {
     currentChat
   } = useLocalChat();
 
+  // Track the latest messages in a ref so onFinish can access them
+  const messagesRef = useRef<AppMessage[]>([]);
+  const currentChatIdRef = useRef(currentChatId);
+  currentChatIdRef.current = currentChatId;
+
   const { messages, sendMessage, setMessages, status, error } =
     useChat<AppMessage>({
       transport,
       onFinish: () => {
-        if (currentChatId) {
-          // We need to wait for the messages state to update, or pass the new messages directly.
-          // useChat doesn't pass the new messages to onFinish in all versions, 
-          // but we can rely on the effect below to sync.
+        // Save to localStorage only when streaming completes — not on every chunk
+        const chatId = currentChatIdRef.current;
+        if (chatId && messagesRef.current.length > 0) {
+          saveMessages(chatId, messagesRef.current);
         }
       }
     });
 
-  // Sync messages to local storage whenever they change
+  // Keep the ref in sync (cheap — no state update, no re-render)
+  messagesRef.current = messages as AppMessage[];
+
+  // Also save when switching chats or on unmount, so we don't lose data
+  const prevChatIdRef = useRef(currentChatId);
   useEffect(() => {
-    if (currentChatId && messages.length > 0) {
-      saveMessages(currentChatId, messages);
+    // Save the previous chat's messages when switching chats
+    if (prevChatIdRef.current && prevChatIdRef.current !== currentChatId) {
+      const prevId = prevChatIdRef.current;
+      if (messagesRef.current.length > 0) {
+        saveMessages(prevId, messagesRef.current);
+      }
     }
-  }, [messages, currentChatId, saveMessages]);
+    prevChatIdRef.current = currentChatId;
+  }, [currentChatId, saveMessages]);
 
   // --- AI title generation for sidebar chat name ---
   const titleGenRef = useRef<Set<string>>(new Set()); // chat IDs already sent for title gen

@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { type UIMessage } from "ai";
 
 export type ChatSession = {
@@ -10,11 +10,15 @@ export type ChatSession = {
 };
 
 const STORAGE_KEY = "chatgpt-v2-chats";
+const SAVE_DEBOUNCE_MS = 2000; // only persist every 2s at most
 
 export function useLocalChat() {
     const [chats, setChats] = useState<ChatSession[]>([]);
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const chatsRef = useRef(chats);
+    chatsRef.current = chats;
 
     // Load from localStorage on mount
     useEffect(() => {
@@ -30,11 +34,21 @@ export function useLocalChat() {
         setIsLoaded(true);
     }, []);
 
-    // Save to localStorage whenever chats change
+    // Debounced save to localStorage — avoids serializing on every streaming chunk
     useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
-        }
+        if (!isLoaded) return;
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(chatsRef.current));
+            } catch (e) {
+                // localStorage quota exceeded — silently fail
+                console.warn("Failed to save chats to localStorage:", e);
+            }
+        }, SAVE_DEBOUNCE_MS);
+        return () => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        };
     }, [chats, isLoaded]);
 
     const createChat = useCallback(() => {
