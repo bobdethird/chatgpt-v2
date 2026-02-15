@@ -933,7 +933,7 @@ export default function ChatPage() {
               <div className="max-w-2xl w-full space-y-8">
                 <div className="text-center space-y-2">
                   <h2 className="text-2xl font-semibold tracking-tight">
-                    What would you like to explore?
+                    Explore the Internet Differently
                   </h2>
                 </div>
 
