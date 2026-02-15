@@ -447,6 +447,23 @@ export const explorerCatalog = defineCatalog(schema, {
       },
     },
 
+    ProjectileSimulator: {
+      props: z.object({
+        gravity: z.number().nullable(),
+        initialVelocity: z.number().nullable(),
+        angle: z.number().nullable(),
+        height: z.number().nullable(),
+      }),
+      description:
+        'Interactive 2D projectile physics simulation. User can set gravity (m/s²), initial velocity (m/s), launch angle (degrees), and initial height (m). Use { "$bindState": "/path" } for each prop so the inputs are two-way bound. Renders a grid with axes and animates the projectile when the user clicks Launch. Use when the user asks for a projectile simulation, ballistics, or trajectory demo.',
+      example: {
+        gravity: { $bindState: "/gravity" },
+        initialVelocity: { $bindState: "/initialVelocity" },
+        angle: { $bindState: "/angle" },
+        height: { $bindState: "/height" },
+      },
+    },
+
     // =========================================================================
     // 3D Scene Components (React Three Fiber)
     // =========================================================================
