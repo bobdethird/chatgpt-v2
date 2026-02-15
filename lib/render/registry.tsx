@@ -354,13 +354,16 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
 
     Table: ({ props }) => {
       const rawData = props.data;
-      const items: Array<Record<string, unknown>> = Array.isArray(rawData)
+      const rawItems: Array<Record<string, unknown>> = Array.isArray(rawData)
         ? rawData
         : Array.isArray((rawData as Record<string, unknown>)?.data)
           ? ((rawData as Record<string, unknown>).data as Array<
               Record<string, unknown>
             >)
           : [];
+
+      // Deduplicate rows — LLM patch ordering can produce duplicate entries
+      const items = deduplicateDataArray(rawItems);
 
       const [sortKey, setSortKey] = useState<string | null>(null);
       const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -472,6 +475,38 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         <AvatarFallback>{props.fallback ?? "?"}</AvatarFallback>
       </ShadAvatar>
     ),
+
+    Image: ({ props }) => {
+      const roundedClass =
+        {
+          none: "rounded-none",
+          sm: "rounded-sm",
+          md: "rounded-md",
+          lg: "rounded-lg",
+          xl: "rounded-xl",
+          full: "rounded-full",
+        }[props.rounded ?? "md"] ?? "rounded-md";
+      const alignStyle =
+        props.align === "right"
+          ? { marginLeft: "auto" }
+          : props.align === "center"
+            ? { marginLeft: "auto", marginRight: "auto" }
+            : undefined;
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={props.src}
+          alt={props.alt}
+          className={`${roundedClass} overflow-hidden flex-shrink-0`}
+          style={{
+            width: props.width ?? "100%",
+            height: props.height ?? "auto",
+            objectFit: (props.objectFit as React.CSSProperties["objectFit"]) ?? "cover",
+            ...alignStyle,
+          }}
+        />
+      );
+    },
 
     BarChart: ({ props }) => {
       const rawData = props.data;
@@ -1344,6 +1379,23 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
 // =============================================================================
 // Table Helpers
 // =============================================================================
+
+/** Deduplicate an array of data objects by JSON content equality. */
+function deduplicateDataArray<T>(arr: T[]): T[] {
+  if (arr.length === 0) return arr;
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of arr) {
+    const key =
+      item && typeof item === "object"
+        ? JSON.stringify(item)
+        : String(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique.length === arr.length ? arr : unique;
+}
 
 /** Render a table cell value as a readable string, handling nested objects. */
 function formatCellValue(value: unknown): string {

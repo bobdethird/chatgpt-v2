@@ -192,12 +192,35 @@ export const explorerCatalog = defineCatalog(schema, {
         size: z.enum(["sm", "default", "lg"]).nullable(),
       }),
       description:
-        "Rounded avatar/icon image with fallback text. Can be placed inside Card, Stack, or any container. Use for weather icons (from iconUrl), user avatars, logos, status icons, etc. fallback is 1-2 chars shown if image fails to load.",
+        "Small rounded icon for favicons, user avatars, logos, and status icons ONLY. Do NOT use Avatar for content images, thumbnails, or article previews — use Image instead. fallback is 1-2 chars shown if image fails to load.",
       example: {
         src: "https://www.accuweather.com/assets/images/weather-icons/v2a/1.svg",
         alt: "Sunny",
         fallback: "☀",
         size: "default",
+      },
+    },
+
+    Image: {
+      props: z.object({
+        src: z.string(),
+        alt: z.string(),
+        width: z.string().nullable(),
+        height: z.string().nullable(),
+        rounded: z.enum(["none", "sm", "md", "lg", "xl", "full"]).nullable(),
+        objectFit: z.enum(["cover", "contain", "fill", "none"]).nullable(),
+        align: z.enum(["left", "center", "right"]).nullable(),
+      }),
+      description:
+        "Displays an image from a URL. Use for content images, thumbnails, article previews, and search result images. Set width/height as CSS values (e.g. '100%', '200px'). rounded controls border-radius. objectFit controls how the image fills its container (default: cover). align controls horizontal self-alignment within a flex parent: 'right' pushes the image to the right via margin-left auto (useful inside Cards and vertical Stacks).",
+      example: {
+        src: "https://example.com/image.jpg",
+        alt: "Article preview",
+        width: "160px",
+        height: "120px",
+        rounded: "lg",
+        objectFit: "cover",
+        align: "right",
       },
     },
 

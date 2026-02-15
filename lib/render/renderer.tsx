@@ -99,6 +99,70 @@ function deduplicateSpec(spec: Spec): Spec {
     }
   }
 
+  // 3. Deduplicate state arrays referenced by data-bearing components (Table,
+  //    BarChart, LineChart, PieChart). The LLM sometimes emits both a full
+  //    state array AND individual "add" patches for the same items. Because
+  //    JSON Patch "add" on arrays uses splice (insert), this creates duplicates.
+  if (state) {
+    // Collect all $state paths referenced by data-bearing component data props
+    const dataStatePaths = new Set<string>();
+    for (const el of Object.values(elements)) {
+      const elAny = el as any;
+      if (
+        elAny.type === "Table" ||
+        elAny.type === "BarChart" ||
+        elAny.type === "LineChart" ||
+        elAny.type === "PieChart"
+      ) {
+        const dataProp = elAny.props?.data;
+        if (dataProp && typeof dataProp === "object" && "$state" in dataProp) {
+          dataStatePaths.add(dataProp.$state as string);
+        }
+      }
+    }
+
+    for (const statePath of dataStatePaths) {
+      const segments = statePath.split("/").filter(Boolean);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let arr: any = state;
+      for (const seg of segments) {
+        if (arr && typeof arr === "object") arr = (arr as any)[seg];
+        else {
+          arr = undefined;
+          break;
+        }
+      }
+
+      if (!Array.isArray(arr) || arr.length === 0) continue;
+
+      // Deduplicate by JSON-stringified content
+      const seen = new Set<string>();
+      const unique: unknown[] = [];
+      for (const item of arr) {
+        const key =
+          item && typeof item === "object"
+            ? JSON.stringify(item)
+            : String(item);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(item);
+      }
+
+      if (unique.length !== arr.length) {
+        if (!stateDirty) {
+          state = JSON.parse(JSON.stringify(state));
+          stateDirty = true;
+        }
+        // Re-traverse in the (possibly cloned) state
+        let parent: any = state;
+        for (let i = 0; i < segments.length - 1; i++) {
+          parent = parent[segments[i]];
+        }
+        parent[segments[segments.length - 1]] = unique;
+      }
+    }
+  }
+
   if (!elementsDirty && !stateDirty) return spec;
 
   return {
