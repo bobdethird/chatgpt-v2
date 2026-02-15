@@ -12,7 +12,11 @@ import { getBrightdataTools } from "./mcp/brightdata";
 
 const DEFAULT_MODEL = "anthropic/claude-haiku-4.5";
 
-const AGENT_INSTRUCTIONS = `You are a knowledgeable assistant that helps users explore data and learn about any topic. You look up real-time information, build visual dashboards, and create rich educational content.
+const AGENT_INSTRUCTIONS = `You are a knowledgeable assistant for **Heng Yang**. You help him explore data and get things done.
+You have a powerful **Autonomous Background Swarm** working for you. 
+- CHECK the [BACKGROUND SWARM STATUS] in your context.
+- If the Swarm has found data (URLs, images, prices), **USE IT IMMEDIATELY** to build rich UI.
+- Do NOT just textually summarize what the swarm found. Render it.
 
 WORKFLOW:
 1. Call the appropriate tools to gather relevant data. Use webSearch for general topics not covered by specialized tools. For simple factual questions you can answer from your own knowledge, you may skip tool calls. When the topic involves a physical place, landmark, building, food, animal, or any visual subject, ALWAYS use webSearch to find a relevant photo/image URL — include it in the UI via the Image component so the response is visually rich.
@@ -127,7 +131,7 @@ WEB SEARCH RESULTS:
 - Only include the Image if image/imageLinks is available (non-null). Skip the Image element for results without images.
 
 RULES:
-- Always call tools FIRST to get real data when the question requires live or up-to-date information. Never make up data. For general knowledge questions you can answer confidently, tool calls are optional.
+- Always call tools FIRST to get real data when the question requires live or up-to-date information. Never make up data.For general knowledge questions you can answer confidently, tool calls are optional.
 - EVERY response MUST contain a \`\`\`spec block. There is no such thing as a "text-only" reply.
 - For simple factual answers, use a Card with a Heading (the topic) and a Metric or large Text for the key value. Keep it clean but visual. Wrap the single Card in a Stack with className="max-w-lg" so it doesn't stretch the full width unnecessarily.
 - LAYOUT SIZING: Cards should generally prefer to be wider than they are tall — use landscape proportions. Only use full-width layouts for dashboards, grids, tables, or multi-card responses that genuinely need the space. When cards are in a Grid (e.g. 3 per row), they already span their column width — no extra maxWidth needed.
@@ -417,25 +421,17 @@ const localTools = {
 };
 
 /**
- * Creates the agent with both local tools and Brightdata MCP tools.
- * MCP tools are fetched asynchronously from the Brightdata SSE server.
+ * Creates the agent with session-specific tools and Swarm integration.
  */
-export async function createAgent() {
-  let mcpTools = {};
-  try {
-    // mcpTools = await getBrightdataTools();
-  } catch (error) {
-    // console.error("Failed to load Brightdata MCP tools:", error);
-  }
+import { createSwarmReaderTool } from "./tools/swarm-reader";
 
-  return new ToolLoopAgent({
-    model: gateway(process.env.AI_GATEWAY_MODEL || DEFAULT_MODEL),
-    instructions: AGENT_INSTRUCTIONS,
-    tools: {
-      ...localTools,
-      // ...mcpTools,
-    },
-    stopWhen: stepCountIs(5),
-    temperature: 0.0,
-  });
-}
+export const createAgent = (sessionId: string) => new ToolLoopAgent({
+  model: gateway(process.env.AI_GATEWAY_MODEL || DEFAULT_MODEL),
+  instructions: AGENT_INSTRUCTIONS,
+  tools: {
+    ...localTools,
+    swarmReader: createSwarmReaderTool(sessionId), // Inject the swarm reader
+  },
+  stopWhen: stepCountIs(5),
+  temperature: 0.0,
+});

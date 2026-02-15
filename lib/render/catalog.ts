@@ -1,6 +1,6 @@
 import { defineCatalog } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
-import { z } from "zod";
+import { z } from "zod-v4";
 import { followUpChoicesCatalogEntry } from "@/lib/follow-up-choices";
 
 // =============================================================================

@@ -1,0 +1,69 @@
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+Loading env from /home/heng/code/chatgpt-v2/.env.local
+Setting OPENAI_API_KEY to AI_GATEWAY_API_KEY for Stagehand compat.
+Environment loaded. Checking keys...
+OPENAI_API_KEY: Set (starts with vck)
+AI_GATEWAY_API_KEY: Set (starts with vck)
+BROWSERBASE_API_KEY: Set
+--- Testing Stagehand Structured Tool Call ---
+Input: {
+  url: 'https://example.com',
+  action: 'extract',
+  instructions: 'Extract the main heading of the page.'
+}
+[Swarm] Stagehand starting: extract on https://example.com
+(node:28319) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2026-02-14 15:45:49.984 -0800] [32mINFO[39m: [36mUsing Browserbase credentials[39m
+    [35mcategory[39m: "init"
+[2026-02-14 15:45:49.984 -0800] [32mINFO[39m: [36mStarting browserbase session[39m
+    [35mcategory[39m: "init"
+[2026-02-14 15:45:49.984 -0800] [32mINFO[39m: [36mCreating new browserbase session...[39m
+    [35mcategory[39m: "init"
+[Swarm] Stagehand keys: [
+  'opts',                 'state',
+  'actHandler',           'extractHandler',
+  'observeHandler',       'ctx',
+  'llmClient',            'bus',
+  'modelName',            'modelClientOptions',
+  'llmProvider',          'overrideLlmClients',
+  'domSettleTimeoutMs',   '_isClosing',
+  'browserbaseSessionId', 'browserbaseSessionUrl',
+  'browserbaseDebugUrl',  '_onCdpClosed',
+  'experimental',         'logInferenceToFile',
+  'disableAPI',           'externalLogger',
+  'verbose',              'stagehandLogger',
+  '_history',             'instanceId',
+  'cacheStorage',         'actCache',
+  'agentCache',           'apiClient',
+  'stagehandMetrics'
+]
+[Swarm] Stagehand context keys: [
+  'conn',
+  'env',
+  'apiClient',
+  'localBrowserLaunchOptions',
+  '_piercerInstalled',
+  '_lastPopupSignalAt',
+  '_sessionInit',
+  'pagesByTarget',
+  'mainFrameToTarget',
+  'sessionOwnerPage',
+  'frameOwnerPage',
+  'pendingOopifByMainFrame',
+  'createdAtByTarget',
+  'typeByTarget',
+  '_pageOrder',
+  'pendingCreatedTargetUrl',
+  'initScripts'
+]
+
+Raw Result: Error using Stagehand: Stagehand failed to initialize page. Page object is undefined. Available keys: opts, state, actHandler, extractHandler, observeHandler, ctx, llmClient, bus, modelName, modelClientOptions, llmProvider, overrideLlmClients, domSettleTimeoutMs, _isClosing, browserbaseSessionId, browserbaseSessionUrl, browserbaseDebugUrl, _onCdpClosed, experimental, logInferenceToFile, disableAPI, externalLogger, verbose, stagehandLogger, _history, instanceId, cacheStorage, actCache, agentCache, apiClient, stagehandMetrics
+
+❌ ERROR: Unexpected token 'E', "Error usin"... is not valid JSON
+[2026-02-14 15:45:52.488 -0800] [32mINFO[39m: [36mBrowserbase session started[39m
+    [35mcategory[39m: "init"
+    [35msessionUrl[39m: "https://www.browserbase.com/sessions/682bbcb9-fba8-4ce1-b54f-281b40feb35d"
+    [35mdebugUrl[39m: "https://www.browserbase.com/devtools/inspector.html?wss=connect.browserbase.com/debug/682bbcb9-fba8-4ce1-b54f-281b40feb35d/devtools/page/EB53B6B8810575BC30F002016A6E1972?debug=true"
+    [35msessionId[39m: "682bbcb9-fba8-4ce1-b54f-281b40feb35d"

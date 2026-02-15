@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod-v4";
 
 /**
  * Catalog entry for FollowUpChoices only.

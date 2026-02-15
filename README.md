@@ -1,30 +1,44 @@
-# ChatGPT V2 - Generative UI Chatbot
+# GenUIne
 
-A next-generation chatbot built with [Next.js 16](https://nextjs.org) and the [Vercel AI SDK](https://sdk.vercel.ai/docs), featuring **Generative UI** capabilities. This application goes beyond simple text responses by rendering interactive React components, data dashboards, and 3D scenes directly in the chat stream.
+**The Autonomous Personal Agent for your Digital Life.**
+
+GenUIne is a next-generation AI interface that combines specific **Generative UI** capabilities with a powerful **Autonomous Swarm** backend. It doesn't just chat; it renders interactive interfaces and performs complex actions across the web and your private workspace.
 
 ## Features
 
--   **Generative UI**: The AI agent responds with rich, interactive UI components (Cards, Charts, Dashboards, Tables) defined by JSONL specs, not just plain text.
--   **Interactive 3D Scenes**: Built-in support for rendering 3D visualizations using [React Three Fiber](https://r3f.docs.pmnd.rs/) (e.g., Solar System, Molucules).
--   **Integrated Tools**:
-    -   **Weather**: Real-time weather data and forecasts.
-    -   **GitHub**: Repository stats and pull requests.
-    -   **Crypto**: Live cryptocurrency prices and historical data charts.
-    -   **Hacker News**: Top stories and trends.
-    -   **Web Search**: General knowledge retrieval.
--   **Local Chat History**: Conversations are persisted locally in the browser for privacy and convenience.
--   **Streaming**: Real-time streaming of both text and UI components for a responsive experience.
--   **Modern Tech Stack**: Built with the latest web technologies including React 19, Tailwind CSS v4, and Shadcn UI.
+### 1. Generative UI (The Front-End)
+The AI agent responds with rich, interactive UI components defined by JSONL specs, not just plain text.
+-   **Interactive Dashboards**: Live data visualization using Recharts.
+-   **3D Rendering**: Immersive 3D scenes using React Three Fiber (e.g., Solar System, Molecules).
+-   **Dynamic Components**: Cards, tables, and forms generated on the fly.
+
+### 2. Autonomous Swarm (The Back-End)
+Powered by **LangGraph**, the Swarm Agent ("The Brain") orchestrates a suite of powerful tools to accomplish multi-step checks and tasks.
+
+#### 🧠 LangGraph Architecture
+The agent uses a cyclic state graph to plan, execute, and refine its actions. It thinks before it acts, ensuring higher reliability for complex requests.
+
+#### 🌍 Web Intelligence (The Eyes) -> Exa
+-   Instead of generic searches, the agent uses **Exa.ai** to find the *exact* information or URL needed.
+-   Capable of finding specific products, reviews, and detailed answers without hallucination.
+
+#### 🖐️ Web Interaction (The Hands) -> Stagehand
+-   **Stagehand Browser Agent** allows GenUIne to interact with live webpages.
+-   It can click buttons, extract hidden pricing, and navigate complex sites autonomously.
+
+#### 🏢 Google Workspace (The Office)
+-   **Gmail**: Read and send emails.
+-   **Calendar**: Check availability and schedule meetings.
+-   **Drive**: Search for files, read documents, and include file links in emails.
 
 ## Tech Stack
 
 -   **Framework**: [Next.js 16 (App Router)](https://nextjs.org)
--   **AI**: [Vercel AI SDK](https://sdk.vercel.ai/docs) (Core, React, Gateway)
--   **UI Library**: [React 19](https://react.dev), [Tailwind CSS v4](https://tailwindcss.com), [Shadcn UI](https://ui.shadcn.com), [Radix UI](https://www.radix-ui.com/)
--   **3D Rendering**: [Three.js](https://threejs.org/), [React Three Fiber](https://r3f.docs.pmnd.rs/), [Drei](https://github.com/pmndrs/drei)
--   **Markdown**: [Streamdown](https://github.com/streamdown/streamdown)
--   **Charts**: [Recharts](https://recharts.org/)
--   **Validation**: [Zod](https://zod.dev/)
+-   **AI Orchestration**: [LangGraph](https://langchain-ai.github.io/langgraphjs/) & [Vercel AI SDK](https://sdk.vercel.ai/docs)
+-   **Browser Automation**: [Stagehand](https://stagehand.dev)
+-   **Search**: [Exa.ai](https://exa.ai)
+-   **UI Library**: [React 19](https://react.dev), [Tailwind CSS v4](https://tailwindcss.com), [Shadcn UI](https://ui.shadcn.com)
+-   **3D Rendering**: [React Three Fiber](https://r3f.docs.pmnd.rs/)
 
 ## Getting Started
 
@@ -37,59 +51,42 @@ A next-generation chatbot built with [Next.js 16](https://nextjs.org) and the [V
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/yourusername/chatgpt-v2.git
-    cd chatgpt-v2
+    git clone https://github.com/yourusername/genuine.git
+    cd genuine
     ```
 
 2.  Install dependencies:
     ```bash
     npm install
-    # or
-    pnpm install
-    # or
-    yarn install
     ```
 
 3.  Configure Environment Variables:
-    Create a `.env.local` file in the root directory. You may need to configure your AI Gateway or Model provider keys.
+    Create a `.env.local` file in the root directory.
     ```env
-    # Example
+    # AI Keys
+    OPENAI_API_KEY=sk-...
+    EXA_API_KEY=...
+    
+    # Google Workspace (OAuth)
+    GOOGLE_CLIENT_ID=...
+    GOOGLE_CLIENT_SECRET=...
+    
+    # Optional
     AI_GATEWAY_MODEL=anthropic/claude-haiku-4.5
-    # Add other provider keys if using direct integration instead of gateway
     ```
 
 4.  Run the development server:
     ```bash
     npm run dev
-    # or
-    pnpm dev
-    # or
-    yarn dev
     ```
 
-5.  Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5.  Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 ## Project Structure
 
 -   `app/`: Next.js App Router pages and API routes.
-    -   `page.tsx`: Main chat interface.
-    -   `api/chat/route.ts`: API route handling AI stream and tool execution.
--   `components/`: Reusable UI components (buttons, inputs, charts, 3D scenes).
--   `lib/`: Utility functions and AI logic.
-    -   `agent.ts`: Configuration of the `ToolLoopAgent`, tools, and system instructions.
-    -   `tools/`: Implementation of specific tools (Weather, GitHub, etc.).
-    -   `render/`: Logic for rendering Generative UI specs.
-
-## Learn More
-
-To learn more about the technologies used in this project:
-
--   [Next.js Documentation](https://nextjs.org/docs)
--   [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs)
--   [React Three Fiber Documentation](https://r3f.docs.pmnd.rs/getting-started/introduction)
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new).
-
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+-   `lib/swarm/`: **The Autonomous Agent Core**.
+    -   `graph.ts`: LangGraph state machine definition.
+    -   `tools.ts`: Tool definitions (Exa, Stagehand, Google).
+    -   `runner.ts`: Swarm execution logic.
+-   `components/`: Reusable UI components.
