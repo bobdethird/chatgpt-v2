@@ -50,6 +50,14 @@ import {
 import { useLocalChat } from "@/lib/hooks/use-local-chat";
 import { MessageSquare, Plus } from "lucide-react";
 import { PromptPill } from "@/components/prompt-pill";
+import type { Spec } from "@json-render/react";
+import { InlineEditor } from "@/components/editor/InlineEditor";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 
 // =============================================================================
@@ -120,28 +128,91 @@ const TOOL_LABELS: Record<string, [string, string]> = {
 function SpecWithDebug({
   spec,
   loading,
+  onEditComponent,
 }: {
-  spec: Parameters<typeof ExplorerRenderer>[0]["spec"];
+  spec: Spec | null;
   loading: boolean;
+  onEditComponent?: (spec: Spec) => Promise<void>;
 }) {
   const [showJson, setShowJson] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const componentRef = useRef<HTMLDivElement>(null);
+
+  const handleEditClick = () => {
+    if (!spec || !onEditComponent) return;
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (prompt: string) => {
+    if (!spec || !onEditComponent) return;
+
+    setEditLoading(true);
+    try {
+      const response = await fetch("/api/edit-component", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ component: spec, prompt }),
+      });
+
+      if (!response.ok) throw new Error("Failed to edit component");
+
+      const body = await response.json();
+      console.log("Edit API raw response:", body);
+      const { component: updatedSpec } = body;
+
+      console.log("Updated spec structure:", {
+        root: updatedSpec?.root,
+        elementsKeys: Object.keys(updatedSpec?.elements || {}),
+        isWrapped: updatedSpec?.root === "el-0"
+      });
+
+      await onEditComponent(updatedSpec);
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error("Edit failed:", error);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
-    <div className="w-full flex flex-col gap-2">
-      <ExplorerRenderer spec={spec} loading={loading} />
-      <button
-        type="button"
-        className="self-end inline-flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-        onClick={() => setShowJson((v) => !v)}
-      >
-        <Code2 className="h-3 w-3" />
-        {showJson ? "Hide JSON" : "Show JSON"}
-      </button>
-      {showJson && (
-        <pre className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-h-96 overflow-auto whitespace-pre-wrap break-all">
-          {JSON.stringify(spec, null, 2)}
-        </pre>
-      )}
-    </div>
+    <>
+      <div className="w-full flex flex-col gap-2" ref={componentRef}>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="relative">
+              <InlineEditor
+                open={editDialogOpen}
+                onOpenChange={setEditDialogOpen}
+                onSubmit={handleEditSubmit}
+                loading={editLoading}
+                targetRef={componentRef}
+              />
+              <ExplorerRenderer spec={spec} loading={loading} />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onClick={handleEditClick} disabled={!spec || !onEditComponent}>
+              Edit Component
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        <button
+          type="button"
+          className="self-end inline-flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          onClick={() => setShowJson((v) => !v)}
+        >
+          <Code2 className="h-3 w-3" />
+          {showJson ? "Hide JSON" : "Show JSON"}
+        </button>
+        {showJson && (
+          <pre className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-h-96 overflow-auto whitespace-pre-wrap break-all">
+            {JSON.stringify(spec, null, 2)}
+          </pre>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -229,10 +300,12 @@ function MessageBubble({
   message,
   isLast,
   isStreaming,
+  onEditComponent,
 }: {
   message: AppMessage;
   isLast: boolean;
   isStreaming: boolean;
+  onEditComponent?: (spec: Spec) => Promise<void>;
 }) {
   const isUser = message.role === "user";
   const { spec, text, hasSpec } = useJsonRenderMessage(message.parts);
@@ -352,7 +425,7 @@ function MessageBubble({
           if (!hasSpec) return null;
           return (
             <div key="spec" className="w-full">
-              <SpecWithDebug spec={spec} loading={isLast && isStreaming} />
+              <SpecWithDebug spec={spec} loading={isLast && isStreaming} onEditComponent={onEditComponent} />
             </div>
           );
         }
@@ -383,7 +456,7 @@ function MessageBubble({
       {/* Fallback: render spec at end if no inline position was found */}
       {showSpecAtEnd && (
         <div className="w-full">
-          <SpecWithDebug spec={spec} loading={isLast && isStreaming} />
+          <SpecWithDebug spec={spec} loading={isLast && isStreaming} onEditComponent={onEditComponent} />
         </div>
       )}
     </div>
@@ -579,6 +652,31 @@ export default function ChatPage() {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, []);
+
+  // Handle in-place spec updates when user edits a component
+  const handleEditComponent = useCallback(async (messageId: string, updatedSpec: Spec) => {
+    setMessages((prevMessages) =>
+      prevMessages.map((msg) => {
+        if (msg.id !== messageId) return msg;
+
+        // Update the spec data in the message parts
+        const newParts = msg.parts.map((part) => {
+          if (part.type === SPEC_DATA_PART_TYPE) {
+            return {
+              ...part,
+              data: {
+                type: "nested" as const,
+                spec: updatedSpec as unknown as Record<string, unknown>,
+              },
+            };
+          }
+          return part;
+        });
+
+        return { ...msg, parts: newParts };
+      })
+    );
+  }, [setMessages]);
 
 
   // Determine what to display
@@ -800,8 +898,7 @@ export default function ChatPage() {
                       >
                         <div className="font-medium truncate">{item.summary}</div>
                       </div>
-                    );
-                })}
+                    ))}
                   </div>
 
                   <Button variant="outline" size="icon" className="h-10 w-10 rounded-full shadow-lg bg-background">
@@ -864,6 +961,7 @@ export default function ChatPage() {
                                 message={assistantMsg}
                                 isLast={isLastExchange && !isStreaming}
                                 isStreaming={isLastExchange && isStreaming}
+                                onEditComponent={async (spec) => handleEditComponent(assistantMsg.id, spec)}
                               />
                             </OutputBlock>
                           </div>
@@ -926,6 +1024,7 @@ export default function ChatPage() {
                           message={message}
                           isLast={index === displayedMessages.length - 1}
                           isStreaming={isStreaming && viewedIndex === null && index === displayedMessages.length - 1}
+                          onEditComponent={async (spec) => handleEditComponent(message.id, spec)}
                         />
                       </OutputBlock>
                     );

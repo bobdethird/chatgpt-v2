@@ -27,11 +27,11 @@ export function PromptPill({ gistTitle, rawPrompt, loading }: PromptPillProps) {
       aria-label={gistTitle ?? "Loading title"}
     >
       <div className="px-4 py-2.5">
-        {loading && !gistTitle ? (
+        {loading && !gistTitle && !rawPrompt ? (
           <Skeleton className="h-6 w-48 rounded-md" />
         ) : (
           <span className="text-lg font-semibold tracking-tight text-foreground">
-            {gistTitle}
+            {gistTitle || rawPrompt}
           </span>
         )}
       </div>
