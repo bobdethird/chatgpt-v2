@@ -250,7 +250,7 @@ function OutputBlock({
 }) {
   return (
     <div className="w-full flex flex-col">
-      <div className="sticky top-0 z-10 shrink-0 py-2 mb-2 bg-gradient-to-b from-background via-background/95 to-transparent">
+      <div className="sticky top-0 z-20 shrink-0 py-2 mb-2 bg-gradient-to-b from-background via-background/95 to-transparent">
         <PromptPill
           gistTitle={aiTitle}
           rawPrompt={rawPrompt || undefined}
