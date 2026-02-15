@@ -54,6 +54,7 @@ export const explorerCatalog = defineCatalog(schema, {
         justify: z
           .enum(["start", "center", "end", "between", "around"])
           .nullable(),
+        className: z.string().nullable(),
       }),
       slots: ["default"],
       description: "Flex container for layouts",
@@ -487,6 +488,26 @@ export const explorerCatalog = defineCatalog(schema, {
       },
     },
 
+    HoverableGroup3D: {
+      props: z.object({
+        ...transform3DProps,
+        animation: animation3D,
+        label: z.string().nullable(),
+        labelPosition: vec3.nullable(),
+        labelFontSize: z.number().nullable(),
+        labelColor: z.string().nullable(),
+      }),
+      slots: ["default"],
+      description:
+        "3D group that shows an optional label only when the user hovers over its children. Use to label planets on hover. Pass label and labelPosition props.",
+      example: {
+        label: "Mercury",
+        labelPosition: [5, 0.6, 0],
+        labelFontSize: 0.4,
+        labelColor: "#ffffff",
+      },
+    },
+
     // Geometry primitives
     Box: {
       props: z.object(mesh3DProps),
@@ -635,6 +656,16 @@ export const explorerCatalog = defineCatalog(schema, {
         fontSize: 0.8,
       },
     },
+
+    PlanetInfoOverlay: {
+      props: z.object({
+        className: z.string().nullable(),
+      }),
+      description:
+        "Overlay that shows planet info from state (set by fetchPlanetInfo action). Place above Scene3D in a Stack. Reads /planetInfo from state.",
+      example: { className: null },
+    },
+
     // =========================================================================
     // 2D Scene Components (SVG)
     // =========================================================================
@@ -776,5 +807,10 @@ export const explorerCatalog = defineCatalog(schema, {
     },
   },
 
-  actions: {},
+  actions: {
+    fetchPlanetInfo: {
+      params: z.object({ planet: z.string() }),
+      description: "Fetch basic planet facts from API and set /planetInfo in state. Used by solar scene hover.",
+    },
+  },
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type ReactNode } from "react";
-import { useBoundProp, defineRegistry } from "@json-render/react";
+import { useBoundProp, defineRegistry, useStateStore } from "@json-render/react";
 import {
   Bar,
   BarChart as RechartsBarChart,
@@ -81,6 +81,7 @@ import {
 // 3D imports
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
+  Billboard,
   OrbitControls,
   Stars as DreiStars,
   Text as DreiText,
@@ -245,7 +246,7 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
         }[props.justify ?? "start"] ?? "justify-start";
       return (
         <div
-          className={`flex ${props.direction === "horizontal" ? "flex-row" : "flex-col"} ${gapClass} ${alignClass} ${justifyClass}`}
+          className={`flex ${props.direction === "horizontal" ? "flex-row" : "flex-col"} ${gapClass} ${alignClass} ${justifyClass} ${props.className ?? ""}`.trim()}
         >
           {children}
         </div>
@@ -1034,6 +1035,44 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       </AnimatedGroup>
     ),
 
+    HoverableGroup3D: ({ props, children, emit }) => {
+      const [hovered, setHovered] = useState(false);
+      const store = useStateStore();
+      const ref = useRef<THREE.Group>(null);
+      useRotationAnimation(ref, props.animation);
+      const hasLabel = props.label && props.labelPosition;
+      return (
+        <group
+          ref={ref}
+          position={toVec3(props.position)}
+          rotation={toVec3(props.rotation)}
+          scale={toVec3(props.scale)}
+          onPointerEnter={() => {
+            setHovered(true);
+            emit("hover");
+          }}
+          onPointerLeave={() => {
+            setHovered(false);
+            store.set("/planetInfo", undefined);
+          }}
+        >
+          {children}
+          {hasLabel && hovered && (
+            <Billboard position={toVec3(props.labelPosition)} follow={true}>
+              <DreiText
+                color={props.labelColor ?? "#ffffff"}
+                fontSize={props.labelFontSize ?? 0.5}
+                anchorX="center"
+                anchorY="middle"
+              >
+                {props.label}
+              </DreiText>
+            </Billboard>
+          )}
+        </group>
+      );
+    },
+
     Box: ({ props, emit }) => (
       <MeshPrimitive meshProps={props} onClick={() => emit("press")}>
         <boxGeometry
@@ -1144,6 +1183,28 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
       </DreiText>
     ),
 
+    PlanetInfoOverlay: ({ props }) => {
+      const store = useStateStore();
+      const planetInfo = store.get("/planetInfo") as
+        | { name: string; facts: string[] }
+        | undefined;
+      if (!planetInfo?.facts?.length) return null;
+      return (
+        <div
+          className={`absolute top-3 left-3 z-20 w-72 rounded-lg border border-border/80 bg-background/95 p-3 shadow-lg backdrop-blur-sm ${props.className ?? ""}`}
+        >
+          <div className="text-sm font-semibold text-foreground mb-2">
+            {planetInfo.name}
+          </div>
+          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+            {planetInfo.facts.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    },
+
     // =========================================================================
     // 2D Scene Components (SVG)
     // =========================================================================
@@ -1235,7 +1296,19 @@ export const { registry, handlers } = defineRegistry(explorerCatalog, {
     ),
   },
 
-  actions: {},
+  actions: {
+    async fetchPlanetInfo(params, setState) {
+      const planet = typeof params?.planet === "string" ? params.planet.trim() : "";
+      if (!planet) return;
+      try {
+        const res = await fetch(`/api/planet-info?planet=${encodeURIComponent(planet)}`);
+        const data = await res.json();
+        if (data.facts) setState((prev) => ({ ...prev, planetInfo: data }));
+      } catch {
+        setState((prev) => ({ ...prev, planetInfo: null }));
+      }
+    },
+  },
 });
 
 // =============================================================================
