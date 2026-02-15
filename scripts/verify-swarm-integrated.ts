@@ -40,7 +40,7 @@ async function runIntegratedTest() {
 
     // 2. Define Goal
     // A query that requires Search -> Visit
-    const userQuery = "give amazon link to best headphones under $200";
+    const userQuery = "find the best wireless noise canceling headphones under $200 and give me the amazon link";
     console.log(`User Query: "${userQuery}"`);
 
     try {

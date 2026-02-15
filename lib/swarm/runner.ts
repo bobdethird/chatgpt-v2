@@ -23,7 +23,7 @@ export function startSwarm(sessionId: string, query: string) {
             };
 
             // Configuration for the run
-            const config = { configurable: { thread_id: sessionId } };
+            const config = { configurable: { thread_id: sessionId, sessionId: sessionId } };
 
             // Execute
             // We iterate over the stream to keep the buffer alive/updating? 
