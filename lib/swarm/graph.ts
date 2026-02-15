@@ -63,7 +63,7 @@ async function customToolNode(state: typeof SwarmState.State) {
 
         try {
             console.log(`[ToolNode] Invoking ${tc.name}...`);
-            const output = await tool.invoke(tc.args, { configurable: { sessionId: state.sessionId } });
+            const output = await (tool as any).invoke(tc.args, { configurable: { sessionId: state.sessionId } });
             return new ToolMessage({
                 tool_call_id: tc.id,
                 content: typeof output === 'string' ? output : JSON.stringify(output),

@@ -47,17 +47,18 @@ export async function POST(req: Request) {
   let query: string | null = null;
 
   if (lastUserMessage) {
-    if (typeof lastUserMessage.content === 'string') {
-      query = lastUserMessage.content;
-    } else if (Array.isArray(lastUserMessage.content)) {
+    const messageDetails = lastUserMessage as any;
+    if (typeof messageDetails.content === 'string') {
+      query = messageDetails.content;
+    } else if (Array.isArray(messageDetails.content)) {
       // Vercel AI SDK Core Message format
-      query = lastUserMessage.content.map(c => c.type === 'text' ? c.text : '').join('');
-    } else if ('parts' in lastUserMessage && Array.isArray((lastUserMessage as any).parts)) {
+      query = messageDetails.content.map((c: any) => c.type === 'text' ? c.text : '').join('');
+    } else if ('parts' in messageDetails && Array.isArray(messageDetails.parts)) {
       // Vercel AI SDK UI Message format (sometimes)
-      query = (lastUserMessage as any).parts.map((p: any) => p.text || '').join('');
+      query = messageDetails.parts.map((p: any) => p.text || '').join('');
     } else {
       // Fallback
-      query = JSON.stringify(lastUserMessage.content || lastUserMessage);
+      query = JSON.stringify(messageDetails.content || messageDetails);
     }
   }
 
